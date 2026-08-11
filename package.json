@@ -1,0 +1,108 @@
+{
+  "name": "transcribator",
+  "version": "1.0.0",
+  "description": "Глобальный транслитератор русского текста с пользовательскими раскладками",
+  "main": "dist-electron/main.js",
+  "author": "Transcribator",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dicts": "node scripts/generate-un-dicts.mjs",
+    "icons": "node scripts/generate-icons.mjs",
+    "predev": "npm run icons",
+    "dev": "vite",
+    "prebuild": "npm run icons",
+    "build": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit && vite build",
+    "test:engine": "npx tsx scripts/test-engine.mts",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "jschardet": "^3.1.4",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.12.1",
+    "pdfjs-dist": "^4.10.38",
+    "uiohook-napi": "^1.5.4",
+    "uuid": "^11.1.0",
+    "word-extractor": "^1.0.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.transcribator.app",
+    "productName": "Transcribator",
+    "directories": {
+      "output": "release"
+    },
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "asarUnpack": [
+      "**/*.node",
+      "**/prebuilds/**"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      },
+      {
+        "from": "electron/data",
+        "to": "data",
+        "filter": [
+          "*.json"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.utilities",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "Transcribator нужен доступ для эмуляции ввода при автозамене.",
+        "NSAccessibilityUsageDescription": "Transcribator нужен доступ Accessibility для глобального перехвата клавиатуры."
+      }
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

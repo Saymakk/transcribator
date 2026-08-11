@@ -1,0 +1,528 @@
+import {
+  app,
+  BrowserWindow,
+  Tray,
+  Menu,
+  nativeImage,
+  ipcMain,
+  shell,
+  nativeTheme,
+  dialog,
+} from "electron";
+import path from "node:path";
+import fs from "node:fs";
+import { AppStore } from "./store";
+import { KeyboardEngine } from "./keyboard/hook";
+import { extractDocumentText, setExtractLocale } from "./documentExtract";
+import type { AppState, Layout, LocaleId, PuntoMode, PuntoPairId, TranslitMode } from "./shared/types";
+import { getPuntoPair } from "./dicts/pairs";
+import { DOCUMENT_EXTENSIONS } from "../src/shared/documentFormats";
+import {
+  EXPORT_FILTER_DEFS,
+  ensureExportExtension,
+  extOfPath,
+} from "../src/shared/exportFormats";
+import { getMessages, t, normalizeLocale } from "../src/shared/i18n";
+import { encodeExportContent } from "./exportDocument";
+import { formatChordLabel } from "../src/shared/hotkeys";
+
+let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let store: AppStore;
+let keyboardEngine: KeyboardEngine;
+let isQuitting = false;
+
+const isDev = !app.isPackaged;
+
+function msg() {
+  return getMessages(store.getState().locale);
+}
+
+function openDialogFilters() {
+  const m = msg();
+  return [
+    {
+      name: t(m, "files.filterDocs"),
+      extensions: ["pdf", "docx", "doc", "odt", "rtf", "fb2", "epub"],
+    },
+    {
+      name: t(m, "files.filterSheets"),
+      extensions: ["xlsx", "xlsm", "xls", "xlsb", "ods", "csv", "tsv"],
+    },
+    {
+      name: t(m, "files.filterSlides"),
+      extensions: ["pptx", "pptm", "odp"],
+    },
+    {
+      name: t(m, "files.filterText"),
+      extensions: ["txt", "md", "html", "htm", "xml", "json", "yaml", "yml", "log", "srt", "vtt"],
+    },
+    {
+      name: t(m, "files.filterAllSupported"),
+      extensions: [...DOCUMENT_EXTENSIONS],
+    },
+    { name: t(m, "files.filterAll"), extensions: ["*"] },
+  ];
+}
+
+function syncAppFocusSuppress(): void {
+  const focused = BrowserWindow.getFocusedWindow();
+  const ours = Boolean(mainWindow && focused === mainWindow && mainWindow.isVisible());
+  keyboardEngine?.setSuppressForAppFocus(ours);
+}
+
+function installAppMenu(): void {
+  const template: Electron.MenuItemConstructorOptions[] = [];
+  if (process.platform === "darwin") {
+    template.push({ role: "appMenu" });
+  }
+  template.push({ role: "editMenu" });
+  template.push({ role: "viewMenu" });
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function assetPath(...parts: string[]): string {
+  if (isDev) {
+    return path.join(process.cwd(), "assets", ...parts);
+  }
+  return path.join(process.resourcesPath, "assets", ...parts);
+}
+
+function createWindow(): void {
+  mainWindow = new BrowserWindow({
+    width: 1100,
+    height: 780,
+    minWidth: 860,
+    minHeight: 600,
+    show: false,
+    title: "Transcribator",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  mainWindow.on("close", (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
+  mainWindow.on("focus", () => syncAppFocusSuppress());
+  mainWindow.on("blur", () => syncAppFocusSuppress());
+  mainWindow.on("show", () => syncAppFocusSuppress());
+  mainWindow.on("hide", () => syncAppFocusSuppress());
+
+  if (isDev && process.env.VITE_DEV_SERVER_URL) {
+    void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    void mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+  }
+}
+
+function modeLabel(mode: TranslitMode): string {
+  const m = msg();
+  switch (mode) {
+    case "forward":
+      return t(m, "tray.modeForward");
+    case "reverse":
+      return t(m, "tray.modeReverse");
+    default:
+      return t(m, "tray.modeOff");
+  }
+}
+
+function trayIconForMode(mode: TranslitMode): Electron.NativeImage {
+  const file =
+    mode === "forward"
+      ? "tray-forward.png"
+      : mode === "reverse"
+        ? "tray-reverse.png"
+        : "tray-off.png";
+  const img = nativeImage.createFromPath(assetPath(file));
+  if (process.platform === "darwin") {
+    img.setTemplateImage(true);
+  }
+  return img.isEmpty() ? nativeImage.createEmpty() : img;
+}
+
+function broadcastState(state: AppState): void {
+  mainWindow?.webContents.send("state:changed", state);
+  updateTray();
+}
+
+function updateTray(): void {
+  if (!tray) return;
+  const state = store.getState();
+  const m = msg();
+  tray.setImage(trayIconForMode(state.mode));
+  tray.setToolTip(t(m, "tray.tooltip", { mode: modeLabel(state.mode) }));
+
+  const layoutItems = state.layouts.map((layout) => ({
+    label: layout.name,
+    type: "radio" as const,
+    checked: layout.id === state.activeLayoutId,
+    click: () => {
+      broadcastState(store.setActiveLayout(layout.id));
+    },
+  }));
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: t(m, "tray.mode", { mode: modeLabel(state.mode) }),
+      enabled: false,
+    },
+    {
+      label: state.hookActive ? t(m, "tray.hookOn") : t(m, "tray.hookOff"),
+      enabled: false,
+    },
+    { type: "separator" },
+    {
+      label: t(m, "tray.openSettings"),
+      click: () => {
+        mainWindow?.show();
+        mainWindow?.focus();
+        mainWindow?.webContents.send("app:navigate", "settings");
+      },
+    },
+    { type: "separator" },
+    {
+      label: t(m, "tray.forward", {
+        chord: formatChordLabel(state.hotkeys.chordFirst, state.hotkeys.chordSecond),
+      }),
+      type: "radio",
+      checked: state.mode === "forward",
+      click: () => broadcastState(store.toggleMode("forward")),
+    },
+    {
+      label: t(m, "tray.reverse", {
+        chord: formatChordLabel(state.hotkeys.chordSecond, state.hotkeys.chordFirst),
+      }),
+      type: "radio",
+      checked: state.mode === "reverse",
+      click: () => broadcastState(store.toggleMode("reverse")),
+    },
+    {
+      label: t(m, "tray.translitOff"),
+      type: "radio",
+      checked: state.mode === "off",
+      click: () => broadcastState(store.setMode("off")),
+    },
+    { type: "separator" },
+    {
+      label: `Punto: ${getPuntoPair(state.puntoPairId).short}`,
+      enabled: false,
+    },
+    {
+      label: t(m, "mode.auto"),
+      type: "checkbox",
+      checked: state.puntoMode === "auto",
+      click: () => broadcastState(store.togglePuntoMode("auto")),
+    },
+    {
+      label: getPuntoPair(state.puntoPairId).a2b.label,
+      type: "checkbox",
+      checked: state.puntoMode === "a2b",
+      click: () => broadcastState(store.togglePuntoMode("a2b")),
+    },
+    {
+      label: getPuntoPair(state.puntoPairId).b2a.label,
+      type: "checkbox",
+      checked: state.puntoMode === "b2a",
+      click: () => broadcastState(store.togglePuntoMode("b2a")),
+    },
+    { type: "separator" },
+    {
+      label: t(m, "tray.activeLayout"),
+      submenu: layoutItems,
+    },
+    { type: "separator" },
+    {
+      label: t(m, "tray.quit"),
+      click: () => {
+        isQuitting = true;
+        keyboardEngine.stop();
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(menu);
+}
+
+function createTray(): void {
+  tray = new Tray(trayIconForMode(store.getState().mode));
+  tray.on("click", () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+  tray.on("double-click", () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+  updateTray();
+}
+
+function registerIpc(): void {
+  ipcMain.handle("state:get", () => store.getState());
+
+  ipcMain.handle("state:setActiveLayout", (_e, id: string) => {
+    const state = store.setActiveLayout(id);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("state:setMode", (_e, mode: TranslitMode) => {
+    const state = store.setMode(mode);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("state:toggleMode", (_e, target: "forward" | "reverse") => {
+    const state = store.toggleMode(target);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("state:setPuntoMode", (_e, mode: PuntoMode) => {
+    const state = store.setPuntoMode(mode);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("state:togglePuntoMode", (_e, target: "a2b" | "b2a" | "auto") => {
+    const state = store.togglePuntoMode(target);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("punto:setDictionary", (_e, entries: { from: string; to: string }[]) => {
+    const state = store.setPuntoDictionary(entries);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("palette:setCustom", (_e, palettes: import("./shared/types").CustomPalette[]) => {
+    const state = store.setCustomPalettes(palettes);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("palette:upsert", (_e, palette: import("./shared/types").CustomPalette) => {
+    const state = store.upsertCustomPalette(palette);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("palette:delete", (_e, id: string) => {
+    const state = store.deleteCustomPalette(id);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("punto:setPair", (_e, id: PuntoPairId) => {
+    const state = store.setPuntoPairId(id);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("file:openDocument", async () => {
+    const result = await dialog.showOpenDialog({
+      title: t(msg(), "files.openTitle"),
+      properties: ["openFile"],
+      filters: openDialogFilters(),
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false as const, canceled: true as const };
+    }
+    const filePath = result.filePaths[0];
+    const name = path.basename(filePath);
+    try {
+      const data = fs.readFileSync(filePath);
+      const text = await extractDocumentText(name, data);
+      return { ok: true as const, name, text };
+    } catch (error) {
+      return {
+        ok: false as const,
+        canceled: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  /** Обратная совместимость со старым preload/API. */
+  ipcMain.handle("file:openTextOrPdf", async () => {
+    const result = await dialog.showOpenDialog({
+      title: t(msg(), "files.openTitle"),
+      properties: ["openFile"],
+      filters: openDialogFilters(),
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false as const, canceled: true as const };
+    }
+    const filePath = result.filePaths[0];
+    const name = path.basename(filePath);
+    try {
+      const data = fs.readFileSync(filePath);
+      const text = await extractDocumentText(name, data);
+      return { ok: true as const, kind: "text" as const, name, text };
+    } catch (error) {
+      return {
+        ok: false as const,
+        canceled: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  ipcMain.handle(
+    "file:extractDocument",
+    async (_e, name: string, bytes: ArrayBuffer | Uint8Array) => {
+      try {
+        const text = await extractDocumentText(String(name || "file"), bytes);
+        return { ok: true as const, text };
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle("file:saveText", async (_e, suggestedName: string, content: string) => {
+    const m = msg();
+    const suggested = suggestedName || "result.txt";
+    const fallbackExt = extOfPath(suggested) || "txt";
+    const result = await dialog.showSaveDialog({
+      title: t(m, "files.saveTitle"),
+      defaultPath: suggested,
+      filters: EXPORT_FILTER_DEFS.map((f) => ({
+        name: t(m, `files.${f.labelKey}`),
+        extensions: f.extensions,
+      })),
+    });
+    if (result.canceled || !result.filePath) {
+      return { ok: false as const, canceled: true as const };
+    }
+    try {
+      const filePath = ensureExportExtension(result.filePath, fallbackExt);
+      const data = await encodeExportContent(String(content ?? ""), filePath);
+      fs.writeFileSync(filePath, data);
+      return { ok: true as const, path: filePath };
+    } catch (error) {
+      return {
+        ok: false as const,
+        canceled: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  ipcMain.handle("state:setLocale", (_e, locale: LocaleId) => {
+    const state = store.setLocale(normalizeLocale(locale));
+    setExtractLocale(state.locale);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("state:setLaunchAtLogin", (_e, enabled: boolean) => {
+    app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath });
+    const state = store.setLaunchAtLogin(enabled);
+    return state;
+  });
+
+  ipcMain.handle("state:setHotkeys", (_e, hotkeys) => {
+    const state = store.setHotkeys(hotkeys);
+    keyboardEngine.syncHotkeysFromStore();
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("layout:save", (_e, layout: Layout) => {
+    const state = store.saveLayout(layout);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("layout:create", (_e, name: string) => {
+    const fallback = t(msg(), "app.newLayout");
+    const state = store.createLayout(name?.trim() ? name : fallback);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("layout:clone", (_e, id: string) => {
+    const state = store.cloneLayout(id, t(msg(), "app.copySuffix"));
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("layout:delete", (_e, id: string) => {
+    const state = store.deleteLayout(id);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("layout:rename", (_e, id: string, name: string) => {
+    const state = store.renameLayout(id, name);
+    updateTray();
+    return state;
+  });
+
+  ipcMain.handle("system:openAccessibility", async () => {
+    if (process.platform === "darwin") {
+      await shell.openExternal(
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+      );
+    } else if (process.platform === "win32") {
+      await shell.openExternal("ms-settings:privacy");
+    }
+    // Linux: хук зависит от X11; отдельных системных настроек нет
+  });
+}
+
+app.whenReady().then(() => {
+  store = new AppStore();
+  setExtractLocale(store.getState().locale);
+  keyboardEngine = new KeyboardEngine(store);
+  keyboardEngine.setOnModeChange(() => broadcastState(store.getState()));
+
+  installAppMenu();
+  registerIpc();
+  createWindow();
+  createTray();
+  syncAppFocusSuppress();
+
+  const login = app.getLoginItemSettings();
+  if (store.getState().launchAtLogin !== login.openAtLogin) {
+    app.setLoginItemSettings({
+      openAtLogin: store.getState().launchAtLogin,
+      path: process.execPath,
+    });
+  }
+
+  const ok = keyboardEngine.start();
+  broadcastState(store.setHookActive(ok));
+
+  if (isDev) {
+    mainWindow?.show();
+  }
+
+  nativeTheme.themeSource = "system";
+});
+
+app.on("window-all-closed", () => {
+  // remain in tray
+});
+
+app.on("before-quit", () => {
+  isQuitting = true;
+  keyboardEngine?.stop();
+});
+
+app.on("activate", () => {
+  mainWindow?.show();
+});
