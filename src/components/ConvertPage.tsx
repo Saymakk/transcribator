@@ -1,83 +1,236 @@
-import { useEffect, useMemo, useState } from "react";
-import type { Layout } from "../shared/types";
-import { transliterateLettersOnly } from "../shared/convert";
-import { formatSupportHint, isSupportedDocument } from "../shared/documentFormats";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { AssSrtPrefs, Layout } from "../shared/types";
+import { DEFAULT_ASS_SRT_PREFS } from "../shared/types";
 import {
-  assToSrt,
-  defaultSelectedFields,
-  looksLikeAss,
-  parseAss,
-} from "../shared/assToSrt";
+  binaryToText,
+  morseToText,
+  textToBinary,
+  textToMorse,
+  transliterateLettersOnly,
+} from "../shared/convert";
+import { formatSupportHint, isSupportedDocument } from "../shared/documentFormats";
+import { resolveAssFields } from "../shared/assSrtPrefs";
+import { assToSrt, looksLikeAss, parseAss } from "../shared/assToSrt";
+import {
+  looksLikeMontage,
+  montageLinesFromPlainText,
+  parseMontage,
+  type MontageLine,
+} from "../shared/montage";
 import { useLocale } from "../i18n/LocaleContext";
 
 type Props = {
   layout: Layout;
+  assSrtPrefs: AssSrtPrefs;
+  onAssSrtPrefsChange: (prefs: AssSrtPrefs) => void;
 };
 
-type ConvertMode = "translit" | "ass-srt";
+type ConvertMode = "translit" | "ass-srt" | "binary" | "morse";
+type CodeDirection = "encode" | "decode" | "auto";
+type LoadedItem = {
+  name: string;
+  text: string;
+  montageLines?: MontageLine[];
+};
 
-export function ConvertPage({ layout }: Props) {
+const MONTAGES_EXT = /\.(docx|doc|dotx)$/i;
+const ASS_EXT = /\.(ass|ssa)$/i;
+
+function isAssItem(item: LoadedItem): boolean {
+  return ASS_EXT.test(item.name) || looksLikeAss(item.text);
+}
+
+function isMontageItem(item: LoadedItem): boolean {
+  if (isAssItem(item)) return false;
+  if (item.montageLines && parseMontage(item.montageLines).actors.length > 0) return true;
+  if (MONTAGES_EXT.test(item.name) && looksLikeMontage(item.text)) return true;
+  return looksLikeMontage(item.text);
+}
+
+export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props) {
   const { t } = useLocale();
+  const prefs = assSrtPrefs ?? DEFAULT_ASS_SRT_PREFS;
   const [mode, setMode] = useState<ConvertMode>("translit");
   const [input, setInput] = useState("");
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
+  const [codeDirection, setCodeDirection] = useState<CodeDirection>("auto");
   const [fileName, setFileName] = useState<string | null>(null);
+  const [montageName, setMontageName] = useState<string | null>(null);
+  const [montageLines, setMontageLines] = useState<MontageLine[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [dragFieldIndex, setDragFieldIndex] = useState<number | null>(null);
+  const [dropFieldIndex, setDropFieldIndex] = useState<number | null>(null);
 
-  const [assFields, setAssFields] = useState<string[]>([]);
-  const [assSeparator, setAssSeparator] = useState(". ");
-  const [assKeepEmpty, setAssKeepEmpty] = useState(false);
+  const [assFields, setAssFields] = useState<string[]>(() => [...prefs.fields]);
+  const [assSeparator, setAssSeparator] = useState(() => prefs.separator);
+  const [assKeepEmpty, setAssKeepEmpty] = useState(() => prefs.keepEmpty);
+  const skipPersist = useRef(true);
+  const prefsFieldsKey = prefs.fields.join("\0");
 
   const assParsed = useMemo(() => (input.trim() ? parseAss(input) : null), [input]);
   const formatColumns = assParsed?.formatColumns ?? [];
+  const formatKey = formatColumns.join("\0");
 
-  // When Format columns from the file change, keep selection in sync with available names.
+  useEffect(() => {
+    setAssSeparator(prefs.separator);
+    setAssKeepEmpty(prefs.keepEmpty);
+  }, [prefs.separator, prefs.keepEmpty]);
+
+  // Restore saved field order when the ASS Format: columns change.
   useEffect(() => {
     if (formatColumns.length === 0) {
       setAssFields([]);
       return;
     }
-    setAssFields((prev) => {
-      const stillValid = prev.filter((f) =>
-        formatColumns.some((c) => c.toLowerCase() === f.toLowerCase()),
-      );
-      if (stillValid.length > 0) {
-        // Remap to exact casing from Format
-        return stillValid.map(
-          (f) => formatColumns.find((c) => c.toLowerCase() === f.toLowerCase()) ?? f,
-        );
-      }
-      return defaultSelectedFields(formatColumns);
-    });
-  }, [formatColumns.join("\0")]);
+    setAssFields(resolveAssFields(formatColumns, prefs.fields));
+  }, [formatKey, prefsFieldsKey]);
+
+  useEffect(() => {
+    if (skipPersist.current) {
+      skipPersist.current = false;
+      return;
+    }
+    const next: AssSrtPrefs = {
+      fields: assFields.length > 0 ? assFields : prefs.fields,
+      separator: assSeparator,
+      keepEmpty: assKeepEmpty,
+    };
+    if (
+      next.separator === prefs.separator &&
+      next.keepEmpty === prefs.keepEmpty &&
+      next.fields.length === prefs.fields.length &&
+      next.fields.every((f, i) => f === prefs.fields[i])
+    ) {
+      return;
+    }
+    onAssSrtPrefsChange(next);
+  }, [assFields, assSeparator, assKeepEmpty]);
 
   const translitOut = useMemo(
     () => transliterateLettersOnly(input, layout, direction),
     [input, layout, direction],
   );
 
+  const binaryResult = useMemo(() => {
+    const trimmed = input.trim();
+    const looksBinary = /^[01\s]+$/.test(trimmed) && /[01]{8}/.test(trimmed);
+    const effectiveDirection: Exclude<CodeDirection, "auto"> =
+      codeDirection === "auto" ? (looksBinary ? "decode" : "encode") : codeDirection;
+    try {
+      return {
+        output:
+          effectiveDirection === "encode" ? textToBinary(input) : binaryToText(input),
+        error: null as string | null,
+      };
+    } catch (e) {
+      return {
+        output: "",
+        error:
+          e instanceof Error ? e.message : "Invalid binary input (use 8-bit groups)",
+      };
+    }
+  }, [input, codeDirection]);
+
+  const morseResult = useMemo(() => {
+    const trimmed = input.trim();
+    const looksMorse = /^[.\-\/\s]+$/.test(trimmed) && /[.\-]/.test(trimmed);
+    const effectiveDirection: Exclude<CodeDirection, "auto"> =
+      codeDirection === "auto" ? (looksMorse ? "decode" : "encode") : codeDirection;
+    try {
+      return {
+        output: effectiveDirection === "encode" ? textToMorse(input) : morseToText(input),
+        error: null as string | null,
+      };
+    } catch (e) {
+      return {
+        output: "",
+        error:
+          e instanceof Error ? e.message : "Invalid Morse input",
+      };
+    }
+  }, [input, codeDirection]);
+
+  const montageCast = useMemo(
+    () => (montageLines && montageLines.length ? parseMontage(montageLines) : null),
+    [montageLines],
+  );
+
   const srtOut = useMemo(
     () =>
       assToSrt(input, {
-        fields: assFields.length ? assFields : defaultSelectedFields(formatColumns),
+        fields: assFields.length
+          ? assFields
+          : resolveAssFields(formatColumns, prefs.fields),
         separator: assSeparator,
         keepEmpty: assKeepEmpty,
+        montage: montageCast,
       }),
-    [input, assFields, assSeparator, assKeepEmpty, formatColumns],
+    [input, assFields, assSeparator, assKeepEmpty, formatColumns, prefs.fields, montageCast],
   );
 
-  const output = mode === "ass-srt" ? srtOut : translitOut;
+  const output =
+    mode === "ass-srt"
+      ? srtOut
+      : mode === "binary"
+        ? binaryResult.output
+        : mode === "morse"
+          ? morseResult.output
+          : translitOut;
+  const codeError =
+    mode === "binary"
+      ? binaryResult.error
+      : mode === "morse"
+        ? morseResult.error
+        : null;
 
-  const applyLoaded = (name: string, text: string) => {
+  const applyAssSource = (name: string, text: string) => {
     setFileName(name);
     setInput(text);
     setError(null);
-    if (/\.ass$/i.test(name) || /\.ssa$/i.test(name) || looksLikeAss(text)) {
-      setMode("ass-srt");
-      const parsed = parseAss(text);
-      setAssFields(defaultSelectedFields(parsed.formatColumns));
+    setMode("ass-srt");
+    const parsed = parseAss(text);
+    setAssFields(resolveAssFields(parsed.formatColumns, prefs.fields));
+  };
+
+  const applyMontage = (name: string, lines: MontageLine[]) => {
+    setMontageName(name);
+    setMontageLines(lines);
+    setError(null);
+    setMode("ass-srt");
+  };
+
+  const applyItems = (items: LoadedItem[]) => {
+    if (items.length === 0) return;
+    let ass: LoadedItem | undefined;
+    let montage: LoadedItem | undefined;
+    let other: LoadedItem | undefined;
+    for (const item of items) {
+      if (isAssItem(item)) ass = item;
+      else if (isMontageItem(item)) montage = item;
+      else other = item;
+    }
+
+    if (ass) {
+      applyAssSource(ass.name, ass.text);
+    } else if (other) {
+      setFileName(other.name);
+      setInput(other.text);
+      setError(null);
+      if (looksLikeAss(other.text)) {
+        setMode("ass-srt");
+        const parsed = parseAss(other.text);
+        setAssFields(resolveAssFields(parsed.formatColumns, prefs.fields));
+      }
+    }
+
+    if (montage) {
+      const lines =
+        montage.montageLines && montage.montageLines.length > 0
+          ? montage.montageLines
+          : montageLinesFromPlainText(montage.text);
+      applyMontage(montage.name, lines);
     }
   };
 
@@ -85,12 +238,12 @@ export function ConvertPage({ layout }: Props) {
     setError(null);
     setBusy(true);
     try {
-      const result = await window.transcribator.openDocument();
+      const result = await window.transcribator.openDocuments();
       if (!result.ok) {
         if (!result.canceled) setError(result.error);
         return;
       }
-      applyLoaded(result.name, result.text);
+      applyItems(result.items);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -101,18 +254,25 @@ export function ConvertPage({ layout }: Props) {
   const loadDroppedFiles = async (files: FileList | File[]) => {
     const list = Array.from(files);
     if (list.length === 0) return;
-    const file = list[0];
     setError(null);
     setBusy(true);
     try {
-      void isSupportedDocument(file.name);
-      const bytes = await file.arrayBuffer();
-      const result = await window.transcribator.extractDocument(file.name, bytes);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      const items: LoadedItem[] = [];
+      for (const file of list) {
+        void isSupportedDocument(file.name);
+        const bytes = await file.arrayBuffer();
+        const result = await window.transcribator.extractDocument(file.name, bytes);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        items.push({
+          name: file.name,
+          text: result.text,
+          montageLines: result.montageLines,
+        });
       }
-      applyLoaded(file.name, result.text);
+      applyItems(items);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -137,7 +297,7 @@ export function ConvertPage({ layout }: Props) {
     setAssFields((prev) => {
       if (prev.some((f) => f.toLowerCase() === field.toLowerCase())) {
         const next = prev.filter((f) => f.toLowerCase() !== field.toLowerCase());
-        return next.length ? next : defaultSelectedFields(formatColumns);
+        return next.length ? next : resolveAssFields(formatColumns, prefs.fields);
       }
       return [...prev, field];
     });
@@ -151,6 +311,21 @@ export function ConvertPage({ layout }: Props) {
       [next[index], next[j]] = [next[j], next[index]];
       return next;
     });
+  };
+
+  const reorderField = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setAssFields((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+  };
+
+  const clearFieldDrag = () => {
+    setDragFieldIndex(null);
+    setDropFieldIndex(null);
   };
 
   return (
@@ -182,6 +357,20 @@ export function ConvertPage({ layout }: Props) {
           >
             {t("convert.modeAssSrt")}
           </button>
+          <button
+            type="button"
+            className={`btn ${mode === "binary" ? "active-forward" : ""}`}
+            onClick={() => setMode("binary")}
+          >
+            Binary
+          </button>
+          <button
+            type="button"
+            className={`btn ${mode === "morse" ? "active-reverse" : ""}`}
+            onClick={() => setMode("morse")}
+          >
+            Morse
+          </button>
         </div>
         {mode === "translit" && (
           <div className="row-actions">
@@ -198,6 +387,31 @@ export function ConvertPage({ layout }: Props) {
               onClick={() => setDirection("reverse")}
             >
               {t("convert.reverse")}
+            </button>
+          </div>
+        )}
+        {(mode === "binary" || mode === "morse") && (
+          <div className="row-actions">
+            <button
+              type="button"
+              className={`btn ${codeDirection === "auto" ? "active-off" : ""}`}
+              onClick={() => setCodeDirection("auto")}
+            >
+              Auto
+            </button>
+            <button
+              type="button"
+              className={`btn ${codeDirection === "encode" ? "active-forward" : ""}`}
+              onClick={() => setCodeDirection("encode")}
+            >
+              Text → Code
+            </button>
+            <button
+              type="button"
+              className={`btn ${codeDirection === "decode" ? "active-reverse" : ""}`}
+              onClick={() => setCodeDirection("decode")}
+            >
+              Code → Text
             </button>
           </div>
         )}
@@ -224,52 +438,127 @@ export function ConvertPage({ layout }: Props) {
 
       {mode === "ass-srt" && (
         <div className="tool-block ass-options">
+          <div className="ass-montage-row">
+            <div>
+              <p className="pane-title">{t("convert.montageTitle")}</p>
+              <p className="hint">
+                {montageName
+                  ? t("convert.montageLabel", {
+                      name: montageName,
+                      actors: String(montageCast?.actors.length ?? 0),
+                      roles: String(montageCast?.roleToActors.size ?? 0),
+                    })
+                  : t("convert.montageHint")}
+              </p>
+            </div>
+            {montageName && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  setMontageName(null);
+                  setMontageLines(null);
+                }}
+              >
+                {t("convert.montageClear")}
+              </button>
+            )}
+          </div>
           <h3>{t("convert.assFields")}</h3>
           {formatColumns.length === 0 ? (
             <p className="hint">{t("convert.assNoDialogues")}</p>
           ) : (
-            <div className="ass-field-list">
-              {formatColumns.map((field) => {
-                const checked = assFields.some((f) => f.toLowerCase() === field.toLowerCase());
-                const orderIdx = assFields.findIndex(
-                  (f) => f.toLowerCase() === field.toLowerCase(),
-                );
-                return (
-                  <div className="ass-field-row" key={field}>
-                    <label className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleField(field)}
-                      />
-                      <span>
-                        {orderIdx >= 0 ? `${orderIdx + 1}. ` : ""}
-                        {field}
+            <div className="ass-fields-compact">
+              <div className="ass-fields-col">
+                <p className="pane-title">{t("convert.assFieldsPick")}</p>
+                <div className="ass-field-list ass-field-list--compact">
+                  {formatColumns.map((field) => {
+                    const checked = assFields.some((f) => f.toLowerCase() === field.toLowerCase());
+                    const orderIdx = assFields.findIndex(
+                      (f) => f.toLowerCase() === field.toLowerCase(),
+                    );
+                    return (
+                      <label className={`ass-field-chip ${checked ? "is-on" : ""}`} key={field}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleField(field)}
+                        />
+                        <span className="ass-field-chip-name">{field}</span>
+                        {checked && <span className="ass-field-chip-order">{orderIdx + 1}</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="ass-fields-col">
+                <p className="pane-title">{t("convert.assFieldsOrder")}</p>
+                <p className="hint ass-order-hint">{t("convert.assDragHint")}</p>
+                <div className="ass-order-list">
+                  {assFields.map((field, index) => (
+                    <div
+                      className={`ass-order-row${
+                        dragFieldIndex === index ? " is-dragging" : ""
+                      }${dropFieldIndex === index ? " is-drop-target" : ""}`}
+                      key={field}
+                      draggable
+                      onDragStart={(e) => {
+                        if ((e.target as HTMLElement).closest("button")) {
+                          e.preventDefault();
+                          return;
+                        }
+                        setDragFieldIndex(index);
+                        setDropFieldIndex(index);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", String(index));
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dropFieldIndex !== index) setDropFieldIndex(index);
+                      }}
+                      onDragLeave={(e) => {
+                        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                        if (dropFieldIndex === index) setDropFieldIndex(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const from = dragFieldIndex ?? Number(e.dataTransfer.getData("text/plain"));
+                        if (!Number.isNaN(from)) reorderField(from, index);
+                        clearFieldDrag();
+                      }}
+                      onDragEnd={clearFieldDrag}
+                    >
+                      <span className="ass-order-grip" aria-hidden title={t("convert.assDragHint")}>
+                        ⠿
                       </span>
-                    </label>
-                    {checked && (
-                      <div className="row-actions">
+                      <span className="ass-order-index">{index + 1}</span>
+                      <span className="ass-order-name">{field}</span>
+                      <div className="row-actions ass-order-actions">
                         <button
                           type="button"
                           className="btn btn-sm"
-                          disabled={orderIdx <= 0}
-                          onClick={() => moveField(orderIdx, -1)}
+                          disabled={index <= 0}
+                          onClick={() => moveField(index, -1)}
+                          title={t("convert.assMoveUp")}
                         >
-                          {t("convert.assMoveUp")}
+                          ↑
                         </button>
                         <button
                           type="button"
                           className="btn btn-sm"
-                          disabled={orderIdx < 0 || orderIdx >= assFields.length - 1}
-                          onClick={() => moveField(orderIdx, 1)}
+                          disabled={index >= assFields.length - 1}
+                          onClick={() => moveField(index, 1)}
+                          title={t("convert.assMoveDown")}
                         >
-                          {t("convert.assMoveDown")}
+                          ↓
                         </button>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           <label className="ass-sep-row">
@@ -297,6 +586,10 @@ export function ConvertPage({ layout }: Props) {
       )}
 
       {fileName && <p className="hint">{t("convert.fileLabel", { name: fileName })}</p>}
+      {mode === "ass-srt" && montageName && (
+        <p className="hint">{t("convert.montageFileLabel", { name: montageName })}</p>
+      )}
+      {codeError && <p className="error-text">{codeError}</p>}
       {error && <p className="error-text">{error}</p>}
 
       <div
@@ -319,8 +612,18 @@ export function ConvertPage({ layout }: Props) {
           void loadDroppedFiles(e.dataTransfer.files);
         }}
       >
+        {busy && (
+          <div className="convert-busy-overlay" aria-live="polite">
+            <span className="spinner" aria-hidden="true" />
+            <span>{t("convert.loading")}</span>
+          </div>
+        )}
         <p className="hint convert-drop-hint">
-          {busy ? t("convert.dropBusy") : t("convert.dropIdle")}
+          {busy
+            ? t("convert.dropBusy")
+            : mode === "ass-srt"
+              ? t("convert.dropAssMontage")
+              : t("convert.dropIdle")}
         </p>
 
         <div className="dual-panes">

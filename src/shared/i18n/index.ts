@@ -13,10 +13,13 @@ import { ar } from "./ar";
 export const catalogs: Record<LocaleId, Messages> = { en, ru, uk, de, fr, es, pl, zh, ko, ar };
 
 export function normalizeLocale(raw: string | undefined | null): LocaleId {
-  if (!raw) return "ru";
-  const base = raw.toLowerCase().replace("_", "-").split("-")[0];
+  if (!raw) return "en";
+  const normalized = raw.toLowerCase().replace(/_/g, "-");
+  const base = normalized.split("-")[0];
+  // Exact match first (e.g. future region variants), then language code.
+  if ((LOCALE_IDS as string[]).includes(normalized)) return normalized as LocaleId;
   if ((LOCALE_IDS as string[]).includes(base)) return base as LocaleId;
-  return "ru";
+  return "en";
 }
 
 export function getMessages(locale: LocaleId): Messages {

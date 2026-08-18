@@ -44,32 +44,32 @@ export const RU_PHONETIC_BASE: Array<{ from: string; latin: string }> = [
 
 /** Доп. латинские/диакритические варианты → тот же RU-ключ. */
 const LATIN_ALIASES: Record<string, string[]> = {
-  a: ["a", "á", "à", "â", "ã", "ä", "å", "ā", "ă", "ą", "æ"],
+  a: ["a", "á", "à", "â", "ã", "ä", "å", "ā", "ă", "ą", "æ", "ǎ"],
   b: ["b"],
   v: ["v", "w"],
-  g: ["g", "ğ", "ģ"],
+  g: ["g", "ğ", "ģ", "ĝ"],
   d: ["d", "ď", "đ", "ð"],
   e: ["e", "é", "è", "ê", "ë", "ē", "ė", "ę", "ě", "ə"],
   yo: ["yo", "ë", "ö"],
-  zh: ["zh", "ž", "ż", "ź", "ǯ"],
+  zh: ["zh", "ž", "ż", "ź", "ǯ", "ĵ"],
   z: ["z", "ž"],
-  i: ["i", "í", "ì", "î", "ï", "ī", "į", "ı"],
-  j: ["j", "y", "ý"],
+  i: ["i", "í", "ì", "î", "ï", "ī", "į", "ı", "ǐ"],
+  j: ["j", "y", "ý", "ĵ"],
   k: ["k", "ķ", "ḳ"],
   l: ["l", "ł", "ļ", "ľ"],
   m: ["m"],
   n: ["n", "ń", "ň", "ņ", "ñ", "ŋ"],
-  o: ["o", "ó", "ò", "ô", "õ", "ö", "ō", "ő", "ø"],
+  o: ["o", "ó", "ò", "ô", "õ", "ö", "ō", "ő", "ø", "ǒ"],
   p: ["p"],
   r: ["r", "ř", "ŕ"],
   s: ["s", "ś", "š", "ş", "ș", "ß"],
   t: ["t", "ť", "ț", "ţ"],
-  u: ["u", "ú", "ù", "û", "ü", "ū", "ů", "ű"],
+  u: ["u", "ú", "ù", "û", "ü", "ū", "ů", "ű", "ŭ", "ǔ"],
   f: ["f", "ph"],
-  h: ["h", "x", "kh", "ḥ"],
-  c: ["c", "ć", "č", "ç", "ц", "ts"],
-  ch: ["ch", "č", "ć"],
-  sh: ["sh", "š", "ș", "ş"],
+  h: ["h", "x", "kh", "ḥ", "ĥ"],
+  c: ["c", "ć", "č", "ç", "ĉ", "ц", "ts"],
+  ch: ["ch", "č", "ć", "ĉ"],
+  sh: ["sh", "š", "ș", "ş", "ŝ"],
   shch: ["shch", "sch", "ŝ", "щ"],
   y: ["y", "ý", "ÿ", "ı"],
   yu: ["yu", "iu", "ü"],
@@ -225,4 +225,93 @@ export function phoneticFromForSymbol(
     if (hit) return hit.from;
   }
   return LATIN_TO_RU.get(normKey(symbol)) ?? "";
+}
+
+/**
+ * Семейство форм для поиска в палитре: «c» → c/ć/č/ç/ĉ…, «и» → i/í/ǐ…,
+ * «ch» → č/ć/ĉ… (по алиасам и NFKD-базе).
+ */
+function expandBaseQueryFamily(query: string): {
+  bases: Set<string>;
+  exact: Set<string>;
+} {
+  const bases = new Set<string>();
+  const exact = new Set<string>();
+  const raw = query.trim();
+  if (!raw) return { bases, exact };
+
+  const lower = raw.toLocaleLowerCase("ru-RU");
+  const base = normKey(raw);
+  exact.add(lower);
+  if (base) bases.add(base);
+
+  const addAliasKey = (key: string) => {
+    const list = LATIN_ALIASES[key];
+    if (!list) return;
+    bases.add(normKey(key));
+    for (const a of list) {
+      exact.add(a.toLocaleLowerCase("ru-RU"));
+      const b = normKey(a);
+      if (b) bases.add(b);
+    }
+  };
+
+  // Прямой латинский ключ / диграф
+  if (LATIN_ALIASES[lower]) addAliasKey(lower);
+  if (base && LATIN_ALIASES[base]) addAliasKey(base);
+
+  // Кириллица → латинская фонетика и её варианты
+  const ru = RU_PHONETIC_BASE.find((e) => e.from === lower);
+  if (ru?.latin) {
+    exact.add(ru.latin.toLocaleLowerCase("en-US"));
+    bases.add(normKey(ru.latin));
+    addAliasKey(ru.latin);
+  }
+
+  // Символ уже с диакритикой: найти все ключи, где он встречается
+  for (const [key, aliases] of Object.entries(LATIN_ALIASES)) {
+    const hit =
+      key === lower ||
+      key === base ||
+      aliases.some(
+        (a) =>
+          a.toLocaleLowerCase("ru-RU") === lower ||
+          normKey(a) === base ||
+          a.toLocaleLowerCase("en-US") === lower,
+      );
+    if (hit) addAliasKey(key);
+  }
+
+  return { bases, exact };
+}
+
+/** Символ относится к введённой стандартной букве / диграфу. */
+export function symbolMatchesBaseQuery(symbol: string, query: string): boolean {
+  const q = query.trim();
+  if (!q) return true;
+  if (!symbol) return false;
+
+  const { bases, exact } = expandBaseQueryFamily(q);
+  const symLower = symbol.toLocaleLowerCase("ru-RU");
+  if (exact.has(symLower)) return true;
+
+  const symBase = normKey(symbol);
+  if (symBase && bases.has(symBase)) return true;
+
+  // Диграфы вроде dž: при однобуквенном запросе — совпадение по любой букве
+  const chars = [...symbol];
+  if (chars.length > 1 && [...q].length === 1) {
+    return chars.some((ch) => {
+      const b = normKey(ch);
+      return (b && bases.has(b)) || exact.has(ch.toLocaleLowerCase("ru-RU"));
+    });
+  }
+
+  return false;
+}
+
+export function filterSymbolsByBaseQuery(symbols: string[], query: string): string[] {
+  const q = query.trim();
+  if (!q) return symbols;
+  return symbols.filter((s) => symbolMatchesBaseQuery(s, q));
 }

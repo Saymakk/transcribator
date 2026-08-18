@@ -310,10 +310,14 @@ export class KeyboardEngine {
     let screenLen = [...word].length;
 
     if (state.mode !== "off") {
+      // Прямой: кириллица (ЙЦУКЕН) → символы активной раскладки (алфавит правил).
+      // Обратный: символы раскладки → кириллица.
       const layout = this.store.getActiveLayout();
       const direction = state.mode === "forward" ? "forward" : "reverse";
       converted = transliterateWord(word, layout, direction);
       if (converted === word) converted = null;
+      // Сколько символов реально ушло на экран = число нажатий (не длина после конвертации).
+      screenLen = strokes.length > 0 ? strokes.length : [...word].length;
     } else if (state.puntoMode === "auto") {
       const pair = getPuntoPair(state.puntoPairId);
       const dict = mergePacksAndCustom(pair.packIds, state.puntoDictionary);

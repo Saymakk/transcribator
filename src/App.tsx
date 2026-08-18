@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AppState, HotkeysConfig, Layout } from "./shared/types";
+import { DEFAULT_ASS_SRT_PREFS } from "./shared/types";
 import { findReverseConflicts, transliterateWord } from "./shared/engine";
 import {
   correspondingFromForSymbol,
@@ -18,6 +19,7 @@ import { ConvertPage } from "./components/ConvertPage";
 import { PuntoPage } from "./components/PuntoPage";
 import { TransformPage } from "./components/TransformPage";
 import { SettingsPage } from "./components/SettingsPage";
+import { DonateModal } from "./components/DonateModal";
 import { makeRule, withRuleIds } from "./shared/ruleIds";
 
 export default function App() {
@@ -29,6 +31,7 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [swapDisplay, setSwapDisplay] = useState(false);
   const [focusRequest, setFocusRequest] = useState<RuleFocusRequest | null>(null);
+  const [donateOpen, setDonateOpen] = useState(false);
 
   const bootLocale = useMemo<LocaleId>(() => normalizeLocale(navigator.language), []);
   const locale = state?.locale ?? bootLocale;
@@ -140,6 +143,52 @@ export default function App() {
     });
     setDirty(false);
     applyState(next);
+    return next;
+  };
+
+  /** Перед включением транслита сохраняем черновик раскладки — хук читает только сохранённые правила. */
+  const ensureLayoutSaved = async () => {
+    if (dirty && draft) await saveDraft();
+  };
+
+  const setTranslitMode = async (mode: AppState["mode"]) => {
+    await ensureLayoutSaved();
+    const next = await window.transcribator.setMode(mode);
+    applyState(next);
+  };
+
+  const toggleTranslitMode = async (target: "forward" | "reverse") => {
+    await ensureLayoutSaved();
+    const next = await window.transcribator.toggleMode(target);
+    applyState(next);
+  };
+
+  const applyAlphabetLayout = async (groupId: string, groupLabel: string, symbols: string[]) => {
+    if (!draft) return;
+    const rules = rulesForPaletteApply(groupId, symbols);
+    if (!rules || rules.length === 0) {
+      alert(t("palette.noLayoutMap"));
+      return;
+    }
+    if (draft.rules.length > 0) {
+      const ok = confirm(t("palette.useAsLayoutConfirm", { name: groupLabel }));
+      if (!ok) return;
+    }
+    const nextRules = withRuleIds(rules);
+    const nextLayout = { ...draft, rules: nextRules };
+    setDraft(nextLayout);
+    const firstEmpty = nextRules.find((r) => !r.to || !r.from) ?? nextRules[0];
+    if (firstEmpty?.id) {
+      setSelectedRuleId(firstEmpty.id);
+      setFocusRequest({
+        ruleId: firstEmpty.id,
+        field: !firstEmpty.from ? "from" : "to",
+        token: Date.now(),
+      });
+    }
+    const next = await window.transcribator.saveLayout(nextLayout);
+    setDirty(false);
+    applyState(next);
   };
 
   const insertSymbol = (symbol: string, groupId: string, symbols: string[]) => {
@@ -157,35 +206,29 @@ export default function App() {
       ? rules.findIndex((r) => r.id === selectedRuleId)
       : 0;
     const i = index >= 0 ? index : 0;
+
+    const active = document.activeElement;
+    const activeIsTargetField =
+      active instanceof HTMLInputElement && active.classList.contains("rule-input-to");
+    if (activeIsTargetField) {
+      const start = active.selectionStart ?? active.value.length;
+      const end = active.selectionEnd ?? start;
+      const current = rules[i].to;
+      const nextTo = current.slice(0, start) + symbol + current.slice(end);
+      const next = rules.map((r, idx) =>
+        idx === i ? { ...r, to: nextTo } : r,
+      );
+      updateDraft({ ...draft, rules: next });
+      setSelectedRuleId(next[i].id!);
+      setFocusRequest({ ruleId: next[i].id!, field: "to", token: Date.now() });
+      return;
+    }
+
     const next = rules.map((r, idx) =>
       idx === i ? { ...r, to: r.to + symbol } : r,
     );
     updateDraft({ ...draft, rules: next });
     setSelectedRuleId(next[i].id!);
-  };
-
-  const applyAlphabetLayout = (groupId: string, groupLabel: string, symbols: string[]) => {
-    if (!draft) return;
-    const rules = rulesForPaletteApply(groupId, symbols);
-    if (!rules || rules.length === 0) {
-      alert(t("palette.noLayoutMap"));
-      return;
-    }
-    if (draft.rules.length > 0) {
-      const ok = confirm(t("palette.useAsLayoutConfirm", { name: groupLabel }));
-      if (!ok) return;
-    }
-    const next = withRuleIds(rules);
-    updateDraft({ ...draft, rules: next });
-    const firstEmpty = next.find((r) => !r.to || !r.from) ?? next[0];
-    if (firstEmpty?.id) {
-      setSelectedRuleId(firstEmpty.id);
-      setFocusRequest({
-        ruleId: firstEmpty.id,
-        field: !firstEmpty.from ? "from" : "to",
-        token: Date.now(),
-      });
-    }
   };
 
   const upsertCustomPalette = (palette: CustomPalette) => {
@@ -204,7 +247,30 @@ export default function App() {
       <div className="app">
         <aside className="sidebar">
           <div className="brand">
-            <h1>Transcribator</h1>
+            <div className="brand-title-row">
+              <h1>Transcribator</h1>
+              <button
+                type="button"
+                className="btn-support"
+                onClick={() => setDonateOpen(true)}
+                title={t("donate.support")}
+              >
+                <svg
+                  className="btn-support-icon"
+                  viewBox="0 0 24 24"
+                  width="12"
+                  height="12"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M12 21s-6.7-4.35-9.33-7.6C.8 10.9 1.1 7.4 3.4 5.6c2-1.55 4.7-1.15 6.2.7L12 8.7l2.4-2.4c1.5-1.85 4.2-2.25 6.2-.7 2.3 1.8 2.6 5.3.73 7.8C18.7 16.65 12 21 12 21z"
+                  />
+                </svg>
+                {t("donate.support")}
+              </button>
+            </div>
             <p>{t("app.brandSubtitle")}</p>
           </div>
 
@@ -219,11 +285,9 @@ export default function App() {
                 ? t("mode.undoHintMs", { ms: hotkeys.undoDoubleCtrlMs })
                 : t("mode.undoOff")
             }
-            onToggleMode={(target) =>
-              void window.transcribator.toggleMode(target).then(applyState)
-            }
-            onSetMode={(mode) => void window.transcribator.setMode(mode).then(applyState)}
-            onSetModeOff={() => void window.transcribator.setMode("off").then(applyState)}
+            onToggleMode={(target) => void toggleTranslitMode(target)}
+            onSetMode={(mode) => void setTranslitMode(mode)}
+            onSetModeOff={() => void setTranslitMode("off")}
             onTogglePunto={(target) =>
               void window.transcribator.togglePuntoMode(target).then(applyState)
             }
@@ -333,7 +397,15 @@ export default function App() {
             </>
           )}
 
-          {section === "convert" && <ConvertPage layout={draft} />}
+          {section === "convert" && (
+            <ConvertPage
+              layout={draft}
+              assSrtPrefs={state.assSrtPrefs ?? DEFAULT_ASS_SRT_PREFS}
+              onAssSrtPrefsChange={(prefs) =>
+                void window.transcribator.setAssSrtPrefs(prefs).then(applyState)
+              }
+            />
+          )}
           {section === "punto" && (
             <PuntoPage
               state={state}
@@ -362,10 +434,14 @@ export default function App() {
               onHotkeysChange={(hk: HotkeysConfig) =>
                 void window.transcribator.setHotkeys(hk).then(applyState)
               }
+              onUpdatePrefsChange={(prefs) =>
+                void window.transcribator.setUpdatePrefs(prefs).then(applyState)
+              }
               onOpenAccessibility={() => void window.transcribator.openAccessibilitySettings()}
             />
           )}
         </main>
+        <DonateModal open={donateOpen} onClose={() => setDonateOpen(false)} />
       </div>
     </LocaleProvider>
   );

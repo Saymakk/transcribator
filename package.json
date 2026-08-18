@@ -15,13 +15,14 @@
     "build": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit && vite build",
     "test:engine": "npx tsx scripts/test-engine.mts",
     "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && electron-builder --win && node scripts/write-latest-yml.mjs",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "preview": "vite preview"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",
+    "electron-updater": "^6.8.9",
     "jschardet": "^3.1.4",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.1",
@@ -79,11 +80,13 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "requireAdministrator"
     },
     "mac": {
       "target": [
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "icon": "assets/icon.png",
       "category": "public.app-category.utilities",
@@ -102,7 +105,18 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "perMachine": true,
+      "runAfterFinish": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Saymakk",
+        "repo": "transcribator",
+        "releaseType": "release"
+      }
+    ]
   }
 }

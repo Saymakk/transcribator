@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AppState, HotkeysConfig } from "../shared/types";
+import type { AppState, HotkeysConfig, UpdatePrefs } from "../shared/types";
 import {
   DEFAULT_HOTKEYS,
   displayKey,
@@ -8,12 +8,14 @@ import {
 } from "../shared/hotkeys";
 import { useLocale } from "../i18n/LocaleContext";
 import type { LocaleId } from "../shared/i18n";
+import { UpdatePanel } from "./UpdatePanel";
 
 type Props = {
   state: AppState;
   onLocaleChange: (locale: LocaleId) => void;
   onLaunchAtLogin: (enabled: boolean) => void;
   onHotkeysChange: (hotkeys: HotkeysConfig) => void;
+  onUpdatePrefsChange: (prefs: UpdatePrefs) => void;
   onOpenAccessibility: () => void;
 };
 
@@ -24,6 +26,7 @@ export function SettingsPage({
   onLocaleChange,
   onLaunchAtLogin,
   onHotkeysChange,
+  onUpdatePrefsChange,
   onOpenAccessibility,
 }: Props) {
   const { t, locale, locales, nativeName } = useLocale();
@@ -129,6 +132,11 @@ export function SettingsPage({
             )}
           </div>
         </section>
+
+        <UpdatePanel
+          prefs={state.updatePrefs ?? { provider: "github", url: "" }}
+          onPrefsChange={onUpdatePrefsChange}
+        />
 
         <section className="editor-card settings-card">
           <h3>{t("settings.hotkeys")}</h3>

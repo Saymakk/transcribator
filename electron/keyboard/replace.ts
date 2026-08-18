@@ -1,6 +1,7 @@
 /**
- * Замена последнего фрагмента одним «превращением»:
- * выделить блок → одна вставка (без Backspace по буквам и без перепечатки).
+ * Замена последнего фрагмента: сначала стереть исходник (Backspace × N),
+ * затем одна вставка. Выделение+Ctrl+V часто не снимает кириллицу в части
+ * приложений — на экране оставались оба варианта слова.
  */
 import { uIOhook, UiohookKey } from "uiohook-napi";
 import { clipboard } from "electron";
@@ -11,72 +12,60 @@ export type ReplaceResult = {
 };
 
 const CTRL = [UiohookKey.Ctrl];
-const SHIFT = [UiohookKey.Shift];
-const CTRL_SHIFT = [UiohookKey.Ctrl, UiohookKey.Shift];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/**
- * Выделяет `charCount` символов слева от курсора.
- * Для типичного «слово + разделитель» — 2 нажатия (меньше артефактов),
- * иначе — посимвольно Shift+←.
- */
-function selectPreviousChars(charCount: number, preferWordSelect: boolean): void {
+/** Удаляет `charCount` символов слева от курсора. */
+async function deletePreviousChars(charCount: number): Promise<void> {
   if (charCount <= 0) return;
+  for (let i = 0; i < charCount; i += 1) {
+    uIOhook.keyTap(UiohookKey.Backspace);
+    // Даём целевому полю успевать обрабатывать длинные слова
+    if ((i + 1) % 6 === 0) await sleep(4);
+  }
+  await sleep(16);
+}
 
-  if (preferWordSelect && charCount >= 2) {
-    // Курсор стоит после разделителя: сначала сам разделитель, затем слово целиком.
-    uIOhook.keyTap(UiohookKey.ArrowLeft, SHIFT);
-    uIOhook.keyTap(UiohookKey.ArrowLeft, CTRL_SHIFT);
-    return;
+async function pasteText(text: string): Promise<void> {
+  const previous = clipboard.readText();
+  clipboard.writeText(text);
+  await sleep(12);
+
+  if (process.platform === "darwin") {
+    uIOhook.keyTap(UiohookKey.V, [UiohookKey.Meta]);
+  } else {
+    uIOhook.keyTap(UiohookKey.V, CTRL);
   }
 
-  for (let i = 0; i < charCount; i += 1) {
-    uIOhook.keyTap(UiohookKey.ArrowLeft, SHIFT);
+  await sleep(40);
+  try {
+    clipboard.writeText(previous);
+  } catch {
+    /* ignore */
   }
 }
 
 /**
- * Заменяет последние `charCount` символов на `text` одним выделением + вставкой.
+ * Заменяет последние `charCount` символов на `text`.
+ * `preferWordSelect` оставлен для совместимости вызовов (больше не используется).
  */
 export async function replaceLastChars(
   charCount: number,
   text: string,
-  options?: { preferWordSelect?: boolean },
+  _options?: { preferWordSelect?: boolean },
 ): Promise<ReplaceResult> {
   if (charCount <= 0 && !text) return { ok: true };
 
   try {
-    if (charCount > 0) {
-      selectPreviousChars(charCount, options?.preferWordSelect !== false);
-      await sleep(6);
-    }
+    await deletePreviousChars(charCount);
 
     if (!text) {
-      uIOhook.keyTap(UiohookKey.Backspace);
-      await sleep(12);
       return { ok: true };
     }
 
-    const previous = clipboard.readText();
-    clipboard.writeText(text);
-    await sleep(8);
-
-    if (process.platform === "darwin") {
-      uIOhook.keyTap(UiohookKey.V, [UiohookKey.Meta]);
-    } else {
-      uIOhook.keyTap(UiohookKey.V, CTRL);
-    }
-
-    await sleep(50);
-    try {
-      clipboard.writeText(previous);
-    } catch {
-      /* ignore */
-    }
-
+    await pasteText(text);
     return { ok: true };
   } catch (error) {
     return {

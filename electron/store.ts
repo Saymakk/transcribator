@@ -21,6 +21,10 @@ import {
 } from "./dicts/pairs";
 import { normalizeLocale } from "../src/shared/i18n";
 import { DEFAULT_HOTKEYS, migrateHotkeys, type HotkeysConfig } from "../src/shared/hotkeys";
+import { DEFAULT_ASS_SRT_PREFS } from "../src/shared/types";
+import { migrateAssSrtPrefs } from "../src/shared/assSrtPrefs";
+import { DEFAULT_UPDATE_PREFS, migrateUpdatePrefs, type UpdatePrefs } from "../src/shared/updateFeed";
+import type { AssSrtPrefs } from "./shared/types";
 
 type PersistedState = {
   layouts: Layout[];
@@ -33,6 +37,8 @@ type PersistedState = {
   launchAtLogin: boolean;
   locale: LocaleId;
   hotkeys: HotkeysConfig;
+  assSrtPrefs: AssSrtPrefs;
+  updatePrefs: UpdatePrefs;
 };
 
 const DEFAULT_MODE: TranslitMode = "off";
@@ -48,8 +54,10 @@ function defaultPersisted(): PersistedState {
     puntoDictionary: [],
     customPalettes: [],
     launchAtLogin: false,
-    locale: normalizeLocale(typeof app !== "undefined" ? app.getLocale() : "ru"),
+    locale: normalizeLocale(typeof app !== "undefined" ? app.getLocale() : "en"),
     hotkeys: { ...DEFAULT_HOTKEYS },
+    assSrtPrefs: { ...DEFAULT_ASS_SRT_PREFS, fields: [...DEFAULT_ASS_SRT_PREFS.fields] },
+    updatePrefs: { ...DEFAULT_UPDATE_PREFS },
   };
 }
 
@@ -115,6 +123,8 @@ export class AppStore {
             : app.getLocale(),
         ),
         hotkeys: migrateHotkeys((raw as { hotkeys?: unknown }).hotkeys),
+        assSrtPrefs: migrateAssSrtPrefs((raw as { assSrtPrefs?: unknown }).assSrtPrefs),
+        updatePrefs: migrateUpdatePrefs((raw as { updatePrefs?: unknown }).updatePrefs),
       };
     } catch {
       const initial = defaultPersisted();
@@ -256,6 +266,18 @@ export class AppStore {
 
   getHotkeys(): HotkeysConfig {
     return this.data.hotkeys;
+  }
+
+  setAssSrtPrefs(prefs: AssSrtPrefs): AppState {
+    this.data.assSrtPrefs = migrateAssSrtPrefs(prefs);
+    this.persist();
+    return this.getState();
+  }
+
+  setUpdatePrefs(prefs: UpdatePrefs): AppState {
+    this.data.updatePrefs = migrateUpdatePrefs(prefs);
+    this.persist();
+    return this.getState();
   }
 
   setLocale(locale: LocaleId): AppState {

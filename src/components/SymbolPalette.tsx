@@ -6,12 +6,13 @@ import {
   rulesForPaletteApply,
   SYMBOL_PALETTE,
 } from "../shared/palette";
+import { filterSymbolsByBaseQuery } from "../shared/phoneticAlign";
 import { useLocale } from "../i18n/LocaleContext";
 
 type Props = {
   customPalettes: CustomPalette[];
   onPick: (symbol: string, groupId: string, symbols: string[]) => void;
-  onApplyLayout: (groupId: string, groupLabel: string, symbols: string[]) => void;
+  onApplyLayout: (groupId: string, groupLabel: string, symbols: string[]) => void | Promise<void>;
   onUpsertCustom: (palette: CustomPalette) => void;
   onDeleteCustom: (id: string) => void;
 };
@@ -36,6 +37,7 @@ export function SymbolPalette({
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groups.map((g) => [g.id, g.defaultOpen ?? false])),
   );
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setOpen((prev) => {
@@ -50,6 +52,25 @@ export function SymbolPalette({
   const [editId, setEditId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
   const [draftSymbols, setDraftSymbols] = useState("");
+
+  const filteredGroups = useMemo(() => {
+    const q = search.trim();
+    if (!q) {
+      return groups.map((g) => ({ group: g, symbols: g.symbols }));
+    }
+    return groups
+      .map((g) => ({
+        group: g,
+        symbols: filterSymbolsByBaseQuery(g.symbols, q),
+      }))
+      .filter((g) => g.symbols.length > 0);
+  }, [groups, search]);
+
+  const searchActive = search.trim().length > 0;
+  const matchTotal = useMemo(
+    () => filteredGroups.reduce((n, g) => n + g.symbols.length, 0),
+    [filteredGroups],
+  );
 
   const toggle = (id: string) => {
     setOpen((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -109,6 +130,35 @@ export function SymbolPalette({
         </div>
       </div>
       <p className="hint palette-hint">{t("palette.hint")}</p>
+
+      <div className="palette-search">
+        <input
+          type="search"
+          className="palette-search-input"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t("palette.searchPlaceholder")}
+          aria-label={t("palette.searchPlaceholder")}
+          spellCheck={false}
+          autoComplete="off"
+        />
+        {searchActive && (
+          <button
+            type="button"
+            className="btn btn-sm palette-search-clear"
+            onClick={() => setSearch("")}
+          >
+            {t("palette.searchClear")}
+          </button>
+        )}
+      </div>
+      {searchActive && (
+        <p className="hint palette-search-status">
+          {matchTotal > 0
+            ? t("palette.searchMatches", { n: matchTotal })
+            : t("palette.searchEmpty")}
+        </p>
+      )}
 
       <div className="palette-custom-block">
         <div className="palette-header">
@@ -171,8 +221,8 @@ export function SymbolPalette({
       </div>
 
       <div className="palette">
-        {groups.map((g) => {
-          const isOpen = open[g.id] ?? false;
+        {filteredGroups.map(({ group: g, symbols }) => {
+          const isOpen = searchActive ? true : (open[g.id] ?? false);
           const canApply = Boolean(rulesForPaletteApply(g.id, g.symbols)?.length);
           return (
             <div className={`palette-group ${isOpen ? "open" : "closed"}`} key={g.id}>
@@ -187,7 +237,9 @@ export function SymbolPalette({
                     {isOpen ? "▾" : "▸"}
                   </span>
                   <span className="palette-group-title">{groupTitle(g)}</span>
-                  <span className="palette-group-count">{g.symbols.length}</span>
+                  <span className="palette-group-count">
+                    {searchActive ? `${symbols.length}/${g.symbols.length}` : g.symbols.length}
+                  </span>
                 </button>
                 {canApply && (
                   <button
@@ -202,7 +254,7 @@ export function SymbolPalette({
               </div>
               {isOpen && (
                 <div className="symbol-grid">
-                  {g.symbols.map((symbol, i) => {
+                  {symbols.map((symbol, i) => {
                     const wide = [...symbol].length > 1;
                     return (
                       <button

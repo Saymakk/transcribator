@@ -8,6 +8,11 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { extOf } from "../src/shared/documentFormats";
 import { getMessages, t } from "../src/shared/i18n";
 import type { LocaleId } from "../src/shared/i18n";
+import {
+  montageLinesFromPlainText,
+  parseDocxMontageXml,
+  type MontageLine,
+} from "../src/shared/montage";
 
 // Locale for extract errors — set from main when possible; defaults to ru.
 let extractLocale: LocaleId = "ru";
@@ -290,6 +295,35 @@ async function extractPdf(buf: Buffer): Promise<string> {
 async function extractDocx(buf: Buffer): Promise<string> {
   const result = await mammoth.extractRawText({ buffer: buf });
   return (result.value || "").trim();
+}
+
+async function extractDocxMontageLines(buf: Buffer): Promise<MontageLine[]> {
+  const zip = await JSZip.loadAsync(buf);
+  const xml = await zip.file("word/document.xml")?.async("string");
+  if (!xml) return [];
+  return parseDocxMontageXml(xml);
+}
+
+/**
+ * Montage lines with Word highlight/shading flags (needed for "?" before actors).
+ */
+export async function extractMontageLines(
+  fileName: string,
+  data: Buffer | Uint8Array | ArrayBuffer,
+): Promise<MontageLine[]> {
+  const buf = Buffer.isBuffer(data)
+    ? data
+    : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+  const ext = extOf(fileName) || extOf(path.basename(fileName));
+  if (WORD_XML.has(ext) || (!ext && buf[0] === 0x50 && buf[1] === 0x4b)) {
+    try {
+      return await extractDocxMontageLines(buf);
+    } catch {
+      /* fall through */
+    }
+  }
+  const text = await extractDocumentText(fileName, buf);
+  return montageLinesFromPlainText(text);
 }
 
 async function extractDoc(buf: Buffer): Promise<string> {

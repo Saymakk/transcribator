@@ -13,7 +13,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { AppStore } from "./store";
 import { KeyboardEngine } from "./keyboard/hook";
-import { extractDocumentText, setExtractLocale } from "./documentExtract";
+import { extractDocumentText, extractMontageLines, setExtractLocale } from "./documentExtract";
 import type { AppState, Layout, LocaleId, PuntoMode, PuntoPairId, TranslitMode } from "./shared/types";
 import { getPuntoPair } from "./dicts/pairs";
 import { DOCUMENT_EXTENSIONS } from "../src/shared/documentFormats";
@@ -25,12 +25,14 @@ import {
 import { getMessages, t, normalizeLocale } from "../src/shared/i18n";
 import { encodeExportContent } from "./exportDocument";
 import { formatChordLabel } from "../src/shared/hotkeys";
+import { applyUpdatePrefs, setupAutoUpdater } from "./updater";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let store: AppStore;
 let keyboardEngine: KeyboardEngine;
 let isQuitting = false;
+let closePromptOpen = false;
 
 const isDev = !app.isPackaged;
 
@@ -41,6 +43,11 @@ function msg() {
 function openDialogFilters() {
   const m = msg();
   return [
+    { name: t(m, "files.filterAll"), extensions: ["*"] },
+    {
+      name: t(m, "files.filterAllSupported"),
+      extensions: [...DOCUMENT_EXTENSIONS],
+    },
     {
       name: t(m, "files.filterDocs"),
       extensions: ["pdf", "docx", "doc", "odt", "rtf", "fb2", "epub"],
@@ -55,13 +62,8 @@ function openDialogFilters() {
     },
     {
       name: t(m, "files.filterText"),
-      extensions: ["txt", "md", "html", "htm", "xml", "json", "yaml", "yml", "log", "srt", "vtt"],
+      extensions: ["txt", "md", "html", "htm", "xml", "json", "yaml", "yml", "log", "srt", "vtt", "ass", "ssa"],
     },
-    {
-      name: t(m, "files.filterAllSupported"),
-      extensions: [...DOCUMENT_EXTENSIONS],
-    },
-    { name: t(m, "files.filterAll"), extensions: ["*"] },
   ];
 }
 
@@ -88,6 +90,47 @@ function assetPath(...parts: string[]): string {
   return path.join(process.resourcesPath, "assets", ...parts);
 }
 
+function showMainWindowMaximized(): void {
+  if (!mainWindow) return;
+  if (!mainWindow.isVisible()) {
+    mainWindow.maximize();
+    mainWindow.show();
+  } else if (!mainWindow.isMaximized()) {
+    mainWindow.maximize();
+  }
+  mainWindow.focus();
+}
+
+async function handleWindowClose(): Promise<void> {
+  if (!mainWindow || isQuitting || closePromptOpen) return;
+  closePromptOpen = true;
+  const m = msg();
+  try {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: "question",
+      title: t(m, "tray.closeTitle"),
+      message: t(m, "tray.closeMessage"),
+      buttons: [
+        t(m, "tray.minimizeToTray"),
+        t(m, "tray.quit"),
+        t(m, "tray.cancelClose"),
+      ],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+    });
+    if (response === 0) {
+      mainWindow.hide();
+    } else if (response === 1) {
+      isQuitting = true;
+      keyboardEngine?.stop();
+      app.quit();
+    }
+  } finally {
+    closePromptOpen = false;
+  }
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -105,10 +148,13 @@ function createWindow(): void {
   });
 
   mainWindow.on("close", (event) => {
-    if (!isQuitting) {
-      event.preventDefault();
-      mainWindow?.hide();
-    }
+    if (isQuitting) return;
+    event.preventDefault();
+    void handleWindowClose();
+  });
+
+  mainWindow.once("ready-to-show", () => {
+    showMainWindowMaximized();
   });
 
   mainWindow.on("focus", () => syncAppFocusSuppress());
@@ -183,8 +229,7 @@ function updateTray(): void {
     {
       label: t(m, "tray.openSettings"),
       click: () => {
-        mainWindow?.show();
-        mainWindow?.focus();
+        showMainWindowMaximized();
         mainWindow?.webContents.send("app:navigate", "settings");
       },
     },
@@ -255,12 +300,10 @@ function updateTray(): void {
 function createTray(): void {
   tray = new Tray(trayIconForMode(store.getState().mode));
   tray.on("click", () => {
-    mainWindow?.show();
-    mainWindow?.focus();
+    showMainWindowMaximized();
   });
   tray.on("double-click", () => {
-    mainWindow?.show();
-    mainWindow?.focus();
+    showMainWindowMaximized();
   });
   updateTray();
 }
@@ -328,7 +371,22 @@ function registerIpc(): void {
     return state;
   });
 
-  ipcMain.handle("file:openDocument", async () => {
+  const MONTAGES_EXT = /\.(docx|doc|dotx)$/i;
+
+async function readOpenedFile(filePath: string): Promise<{
+  name: string;
+  text: string;
+  montageLines?: { text: string; colored?: boolean }[];
+}> {
+  const name = path.basename(filePath);
+  const data = fs.readFileSync(filePath);
+  const text = await extractDocumentText(name, data);
+  if (!MONTAGES_EXT.test(name)) return { name, text };
+  const montageLines = await extractMontageLines(name, data);
+  return { name, text, montageLines };
+}
+
+ipcMain.handle("file:openDocument", async () => {
     const result = await dialog.showOpenDialog({
       title: t(msg(), "files.openTitle"),
       properties: ["openFile"],
@@ -337,12 +395,33 @@ function registerIpc(): void {
     if (result.canceled || result.filePaths.length === 0) {
       return { ok: false as const, canceled: true as const };
     }
-    const filePath = result.filePaths[0];
-    const name = path.basename(filePath);
     try {
-      const data = fs.readFileSync(filePath);
-      const text = await extractDocumentText(name, data);
-      return { ok: true as const, name, text };
+      const item = await readOpenedFile(result.filePaths[0]);
+      return { ok: true as const, ...item };
+    } catch (error) {
+      return {
+        ok: false as const,
+        canceled: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  ipcMain.handle("file:openDocuments", async () => {
+    const result = await dialog.showOpenDialog({
+      title: t(msg(), "files.openTitle"),
+      properties: ["openFile", "multiSelections"],
+      filters: openDialogFilters(),
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false as const, canceled: true as const };
+    }
+    try {
+      const items = [];
+      for (const filePath of result.filePaths) {
+        items.push(await readOpenedFile(filePath));
+      }
+      return { ok: true as const, items };
     } catch (error) {
       return {
         ok: false as const,
@@ -379,10 +458,14 @@ function registerIpc(): void {
 
   ipcMain.handle(
     "file:extractDocument",
-    async (_e, name: string, bytes: ArrayBuffer | Uint8Array) => {
+    async (_e, fileName: string, bytes: ArrayBuffer | Uint8Array) => {
       try {
-        const text = await extractDocumentText(String(name || "file"), bytes);
-        return { ok: true as const, text };
+        const name = String(fileName || "file");
+        const text = await extractDocumentText(name, bytes);
+        const montageLines = MONTAGES_EXT.test(name)
+          ? await extractMontageLines(name, bytes)
+          : undefined;
+        return { ok: true as const, text, montageLines };
       } catch (error) {
         return {
           ok: false as const,
@@ -441,6 +524,16 @@ function registerIpc(): void {
     return state;
   });
 
+  ipcMain.handle("state:setAssSrtPrefs", (_e, prefs) => {
+    return store.setAssSrtPrefs(prefs);
+  });
+
+  ipcMain.handle("state:setUpdatePrefs", (_e, prefs) => {
+    const state = store.setUpdatePrefs(prefs);
+    applyUpdatePrefs(state.updatePrefs);
+    return state;
+  });
+
   ipcMain.handle("layout:save", (_e, layout: Layout) => {
     const state = store.saveLayout(layout);
     updateTray();
@@ -482,6 +575,17 @@ function registerIpc(): void {
     }
     // Linux: хук зависит от X11; отдельных системных настроек нет
   });
+
+  ipcMain.handle("shell:openExternal", async (_e, url: string) => {
+    const raw = String(url || "");
+    if (!/^https?:\/\//i.test(raw)) {
+      return { ok: false as const, error: "Invalid URL" };
+    }
+    await shell.openExternal(raw);
+    return { ok: true as const };
+  });
+
+  ipcMain.handle("app:getVersion", () => app.getVersion());
 }
 
 app.whenReady().then(() => {
@@ -507,9 +611,10 @@ app.whenReady().then(() => {
   const ok = keyboardEngine.start();
   broadcastState(store.setHookActive(ok));
 
-  if (isDev) {
-    mainWindow?.show();
-  }
+  setupAutoUpdater(
+    () => store.getState().updatePrefs,
+    () => store.getState().locale,
+  );
 
   nativeTheme.themeSource = "system";
 });
@@ -524,5 +629,5 @@ app.on("before-quit", () => {
 });
 
 app.on("activate", () => {
-  mainWindow?.show();
+  showMainWindowMaximized();
 });

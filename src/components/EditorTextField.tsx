@@ -95,6 +95,9 @@ export function EditorTextField({
         // Не даём родительским кнопкам/хэндлерам перехватить первый клик.
         e.stopPropagation();
       }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+      }}
       onFocus={() => {
         focusedRef.current = true;
         onFocus?.();
@@ -109,6 +112,12 @@ export function EditorTextField({
       }}
       onInput={(e) => {
         const next = e.currentTarget.value;
+        lastSent.current = next;
+        onChange(next);
+      }}
+      onChange={(e) => {
+        const next = e.currentTarget.value;
+        if (next === lastSent.current) return;
         lastSent.current = next;
         onChange(next);
       }}

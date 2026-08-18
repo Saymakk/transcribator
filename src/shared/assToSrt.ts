@@ -3,6 +3,9 @@
  * Dialogue columns are taken from the file's own Format: line under [Events].
  */
 
+import type { MontageCast } from "./montage";
+import { prefixCueWithActors } from "./montage";
+
 export type AssToSrtOptions = {
   /** Column names from the file Format line, in the order to join into cue text. */
   fields: string[];
@@ -10,6 +13,8 @@ export type AssToSrtOptions = {
   separator: string;
   /** Keep empty field values in the joined string. */
   keepEmpty?: boolean;
+  /** Optional dubbing montage: prepend actor names before cue text. */
+  montage?: MontageCast | null;
 };
 
 export type AssEventRow = {
@@ -166,6 +171,11 @@ export function formatAssCueBody(row: AssEventRow, options: AssToSrtOptions): st
   return filtered.join(sep);
 }
 
+function rowRoleName(row: AssEventRow): string {
+  const key = Object.keys(row.columns).find((k) => k.toLowerCase() === "name");
+  return key ? row.columns[key] ?? "" : "";
+}
+
 export function assToSrt(source: string, options: AssToSrtOptions): string {
   const { rows } = parseAss(source);
   if (rows.length === 0) return "";
@@ -173,7 +183,8 @@ export function assToSrt(source: string, options: AssToSrtOptions): string {
   const blocks: string[] = [];
   let index = 1;
   for (const row of rows) {
-    const body = formatAssCueBody(row, options);
+    let body = formatAssCueBody(row, options);
+    body = prefixCueWithActors(body, rowRoleName(row), row.start, options.montage);
     if (!body.trim() && !options.keepEmpty) continue;
     blocks.push(
       `${index}\n${assTimeToSrt(row.start)} --> ${assTimeToSrt(row.end)}\n${body}`,

@@ -39,6 +39,19 @@ export type CustomPalette = {
   symbols: string[];
 };
 
+export type AssSrtPrefs = {
+  fields: string[];
+  separator: string;
+  keepEmpty: boolean;
+};
+
+export type UpdateProviderId = "github" | "generic";
+
+export type UpdatePrefs = {
+  provider: UpdateProviderId;
+  url: string;
+};
+
 export type HotkeysConfig = {
   chordFirst: string;
   chordSecond: string;
@@ -58,6 +71,8 @@ export type AppState = {
   hookActive: boolean;
   locale: LocaleId;
   hotkeys: HotkeysConfig;
+  assSrtPrefs: AssSrtPrefs;
+  updatePrefs: UpdatePrefs;
 };
 
 export type RuleConflict = {

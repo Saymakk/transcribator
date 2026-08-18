@@ -8,13 +8,20 @@ import type {
   TranslitMode,
 } from "./shared/types";
 
+type MontageLine = { text: string; colored?: boolean };
+
 export type OpenFileResult =
-  | { ok: true; name: string; text: string }
+  | { ok: true; name: string; text: string; montageLines?: MontageLine[] }
+  | { ok: false; canceled: true }
+  | { ok: false; canceled: false; error: string };
+
+export type OpenFilesResult =
+  | { ok: true; items: Array<{ name: string; text: string; montageLines?: MontageLine[] }> }
   | { ok: false; canceled: true }
   | { ok: false; canceled: false; error: string };
 
 export type ExtractResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; montageLines?: MontageLine[] }
   | { ok: false; error: string };
 
 export type SaveFileResult =
@@ -42,6 +49,12 @@ const api = {
     ipcRenderer.invoke("state:setLaunchAtLogin", enabled),
   setHotkeys: (hotkeys: import("./shared/types").HotkeysConfig): Promise<AppState> =>
     ipcRenderer.invoke("state:setHotkeys", hotkeys),
+  setAssSrtPrefs: (
+    prefs: import("./shared/types").AssSrtPrefs,
+  ): Promise<AppState> => ipcRenderer.invoke("state:setAssSrtPrefs", prefs),
+  setUpdatePrefs: (
+    prefs: import("./shared/types").UpdatePrefs,
+  ): Promise<AppState> => ipcRenderer.invoke("state:setUpdatePrefs", prefs),
   setLocale: (locale: import("./shared/types").LocaleId): Promise<AppState> =>
     ipcRenderer.invoke("state:setLocale", locale),
   setCustomPalettes: (
@@ -65,12 +78,20 @@ const api = {
   openAccessibilitySettings: (): Promise<void> =>
     ipcRenderer.invoke("system:openAccessibility"),
   openDocument: (): Promise<OpenFileResult> => ipcRenderer.invoke("file:openDocument"),
+  openDocuments: (): Promise<OpenFilesResult> => ipcRenderer.invoke("file:openDocuments"),
   /** @deprecated use openDocument */
   openTextOrPdf: (): Promise<OpenFileResult> => ipcRenderer.invoke("file:openDocument"),
   extractDocument: (name: string, bytes: ArrayBuffer): Promise<ExtractResult> =>
     ipcRenderer.invoke("file:extractDocument", name, bytes),
   saveText: (suggestedName: string, content: string): Promise<SaveFileResult> =>
     ipcRenderer.invoke("file:saveText", suggestedName, content),
+  openExternal: (url: string): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke("shell:openExternal", url),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke("app:getVersion"),
+  getUpdateStatus: (): Promise<unknown> => ipcRenderer.invoke("update:getStatus"),
+  checkForUpdates: (): Promise<unknown> => ipcRenderer.invoke("update:check"),
+  downloadAndInstallUpdate: (): Promise<void> => ipcRenderer.invoke("update:downloadAndInstall"),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke("update:install"),
   onStateChanged: (cb: (state: AppState) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: AppState) => cb(state);
     ipcRenderer.on("state:changed", listener);
@@ -80,6 +101,11 @@ const api = {
     const listener = (_event: Electron.IpcRendererEvent, section: string) => cb(section);
     ipcRenderer.on("app:navigate", listener);
     return () => ipcRenderer.removeListener("app:navigate", listener);
+  },
+  onUpdateStatus: (cb: (status: unknown) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: unknown) => cb(status);
+    ipcRenderer.on("update:status", listener);
+    return () => ipcRenderer.removeListener("update:status", listener);
   },
 };
 

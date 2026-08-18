@@ -1,3 +1,5 @@
+import type { UpdatePrefs } from "./updateFeed";
+
 export type LayoutRule = {
   /** Stable row id for React lists (optional for older saved layouts). */
   id?: string;
@@ -28,7 +30,21 @@ export type CustomPalette = {
   symbols: string[];
 };
 
+export type AssSrtPrefs = {
+  /** Preferred field names in cue order (matched case-insensitively to Format:). */
+  fields: string[];
+  separator: string;
+  keepEmpty: boolean;
+};
+
+export const DEFAULT_ASS_SRT_PREFS: AssSrtPrefs = {
+  fields: ["Text"],
+  separator: ". ",
+  keepEmpty: false,
+};
+
 export type { HotkeysConfig } from "./hotkeys";
+export type { UpdatePrefs, UpdateProviderId } from "./updateFeed";
 
 export type AppState = {
   layouts: Layout[];
@@ -47,6 +63,10 @@ export type AppState = {
   locale: import("./i18n").LocaleId;
   /** Global hotkeys (chords + undo). */
   hotkeys: import("./hotkeys").HotkeysConfig;
+  /** ASS→SRT converter field order / separator prefs. */
+  assSrtPrefs: AssSrtPrefs;
+  /** Where to look for app updates. */
+  updatePrefs: UpdatePrefs;
 };
 
 export type RuleConflict = {
