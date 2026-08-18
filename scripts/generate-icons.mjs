@@ -96,7 +96,7 @@ function disc(size, color, letter) {
   });
 }
 
-fs.writeFileSync(path.join(root, "icon.png"), disc(256, [61, 184, 154], "T"));
+fs.writeFileSync(path.join(root, "icon.png"), disc(1024, [61, 184, 154], "T"));
 fs.writeFileSync(path.join(root, "tray-off.png"), disc(32, [147, 164, 184], "T"));
 fs.writeFileSync(path.join(root, "tray-forward.png"), disc(32, [91, 159, 212], "F"));
 fs.writeFileSync(path.join(root, "tray-reverse.png"), disc(32, [194, 139, 219], "R"));

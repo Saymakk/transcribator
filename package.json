@@ -3,7 +3,10 @@
   "version": "1.0.2",
   "description": "Глобальный транслитератор русского текста с пользовательскими раскладками",
   "main": "dist-electron/main.js",
-  "author": "Transcribator",
+  "author": {
+    "name": "Transcribator",
+    "email": "vladsarana@gmail.com"
+  },
   "license": "MIT",
   "private": true,
   "scripts": {
@@ -90,6 +93,7 @@
       ],
       "icon": "assets/icon.png",
       "category": "public.app-category.utilities",
+      "identity": null,
       "extendInfo": {
         "NSAppleEventsUsageDescription": "Transcribator нужен доступ для эмуляции ввода при автозамене.",
         "NSAccessibilityUsageDescription": "Transcribator нужен доступ Accessibility для глобального перехвата клавиатуры."
@@ -101,7 +105,8 @@
         "deb"
       ],
       "icon": "assets/icon.png",
-      "category": "Utility"
+      "category": "Utility",
+      "maintainer": "Transcribator <vladsarana@gmail.com>"
     },
     "nsis": {
       "oneClick": false,
