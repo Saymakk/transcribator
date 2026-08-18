@@ -10,6 +10,8 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import {
   classifyUpdateFeed,
+  githubTagDownloadUrl,
+  GITHUB_RELEASES,
   isRemoteNewer,
   normalizeHttpFeedUrl,
   parseLatestYml,
@@ -161,4 +163,62 @@ export function installPendingNsis(isSilent: boolean, forceRun: boolean): boolea
   const child = spawn(pendingInstaller, args, { detached: true, stdio: "ignore" });
   child.unref();
   return true;
+}
+
+type GithubAsset = {
+  name: string;
+  browser_download_url: string;
+  size: number;
+};
+
+type GithubRelease = {
+  tag_name: string;
+  draft?: boolean;
+  prerelease?: boolean;
+  assets?: GithubAsset[];
+  body?: string | null;
+};
+
+export type GithubReleaseCheck =
+  | { ok: true; tag: string; feedUrl: string; notes: string | null }
+  | { ok: false; errorKey: "update.noGithubRelease" | "update.noGithubAssets"; tag?: string };
+
+async function githubApi<T>(path: string): Promise<{ status: number; data: T | null }> {
+  const { owner, repo } = GITHUB_RELEASES;
+  const res = await net.fetch(`https://api.github.com/repos/${owner}/${repo}${path}`, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "Transcribator",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (res.status === 404) return { status: 404, data: null };
+  if (!res.ok) {
+    throw new Error(`GitHub API HTTP ${res.status}`);
+  }
+  return { status: res.status, data: (await res.json()) as T };
+}
+
+function hasLatestYml(release: GithubRelease): boolean {
+  return (release.assets ?? []).some((a) => /^latest.*\.yml$/i.test(a.name));
+}
+
+export async function inspectGithubRelease(): Promise<GithubReleaseCheck> {
+  let latest = (await githubApi<GithubRelease>("/releases/latest")).data;
+  if (!latest) {
+    const list = (await githubApi<GithubRelease[]>("/releases?per_page=10")).data ?? [];
+    latest = list.find((r) => !r.draft && !r.prerelease && hasLatestYml(r)) ?? list.find((r) => !r.draft) ?? null;
+  }
+  if (!latest) {
+    return { ok: false, errorKey: "update.noGithubRelease" };
+  }
+  if (!hasLatestYml(latest)) {
+    return { ok: false, errorKey: "update.noGithubAssets", tag: latest.tag_name };
+  }
+  return {
+    ok: true,
+    tag: latest.tag_name,
+    feedUrl: githubTagDownloadUrl(latest.tag_name),
+    notes: latest.body ?? null,
+  };
 }

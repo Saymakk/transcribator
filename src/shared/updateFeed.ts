@@ -7,6 +7,20 @@ export type UpdatePrefs = {
   url: string;
 };
 
+export const GITHUB_RELEASES = {
+  owner: "Saymakk",
+  repo: "transcribator",
+} as const;
+
+export function githubLatestDownloadUrl(): string {
+  return `https://github.com/${GITHUB_RELEASES.owner}/${GITHUB_RELEASES.repo}/releases/latest/download`;
+}
+
+export function githubTagDownloadUrl(tag: string): string {
+  const safe = tag.replace(/^\/+|\/+$/g, "");
+  return `https://github.com/${GITHUB_RELEASES.owner}/${GITHUB_RELEASES.repo}/releases/download/${safe}`;
+}
+
 export const DEFAULT_UPDATE_PREFS: UpdatePrefs = {
   provider: "github",
   url: "",

@@ -322,6 +322,8 @@ export const ru: Messages = {
     "promptDetail": "Скачать и установить сейчас? Приложение будет перезапущено.",
     "promptDownload": "Скачать и установить",
     "promptLater": "Позже",
+    "noGithubRelease": "На GitHub ещё нет релиза с установщиком. Одного git-тега мало — нужен Release с файлами latest.yml и Setup .exe (push тега vX.Y.Z для workflow Release или electron-builder --publish always).",
+    "noGithubAssets": "У тега {tag} на GitHub нет latest.yml и установщика. Опубликуйте Release с этими файлами, а не только тег.",
     "source": "Источник обновлений",
     "sourceGithub": "GitHub Releases",
     "sourceCustom": "Яндекс Диск / HTTPS-папка",

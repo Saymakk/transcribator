@@ -321,6 +321,8 @@ export const pl: Messages = {
     "promptDetail": "Download and install it now? The app will restart.",
     "promptDownload": "Download and install",
     "promptLater": "Later",
+    "noGithubRelease": "No GitHub Release with installer files yet. A git tag is not enough — publish a Release that includes latest.yml and the Setup .exe (push tag vX.Y.Z to run the Release workflow, or electron-builder --publish always).",
+    "noGithubAssets": "GitHub tag {tag} has no latest.yml / installer. Create a Release with those files, not only a tag.",
     "source": "Update source",
     "sourceGithub": "GitHub Releases",
     "sourceCustom": "Yandex Disk / HTTPS folder",

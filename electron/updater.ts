@@ -7,11 +7,13 @@ import { autoUpdater, type UpdateInfo } from "electron-updater";
 import { getMessages, t, type LocaleId } from "../src/shared/i18n";
 import {
   classifyUpdateFeed,
+  githubLatestDownloadUrl,
   type UpdatePrefs,
 } from "../src/shared/updateFeed";
 import {
   checkCustomFeed,
   getPendingInstaller,
+  inspectGithubRelease,
   installPendingNsis,
 } from "./updateFeeds";
 
@@ -42,6 +44,22 @@ export function getUpdateStatus(): UpdateStatusPayload {
   return lastPayload;
 }
 
+function feedErrorMessage(error: unknown): string {
+  const m = getMessages(getLocale());
+  const raw = error instanceof Error ? error.message : String(error);
+  if (
+    /noGithubRelease|no published versions|Unable to find latest version|406 |releases\/latest/i.test(
+      raw,
+    )
+  ) {
+    return t(m, "update.noGithubRelease");
+  }
+  if (/noGithubAssets|latest\.yml|CHANNEL_FILE_NOT_FOUND|Cannot find latest/i.test(raw)) {
+    return t(m, "update.noGithubAssets");
+  }
+  return raw.split("Headers:")[0].split("Data:")[0].replace(/\s+/g, " ").trim().slice(0, 280);
+}
+
 function applyElectronFeed(prefs: UpdatePrefs): void {
   const kind = classifyUpdateFeed(prefs);
   autoUpdater.autoDownload = false;
@@ -58,11 +76,11 @@ function applyElectronFeed(prefs: UpdatePrefs): void {
     return;
   }
 
+  // GitHub HTML /releases?Accept=json now returns 406. Use the asset URL instead.
   autoUpdater.disableDifferentialDownload = false;
   autoUpdater.setFeedURL({
-    provider: "github",
-    owner: "Saymakk",
-    repo: "transcribator",
+    provider: "generic",
+    url: githubLatestDownloadUrl(),
   });
 }
 
@@ -132,8 +150,24 @@ async function runCheck(options?: {
     broadcast({ status: "error", message });
     return { ok: false as const, error: message };
   }
-  applyElectronFeed(prefs);
+
   try {
+    if (kind === "github") {
+      const gh = await inspectGithubRelease();
+      const m = getMessages(getLocale());
+      if (!gh.ok) {
+        const message = t(m, gh.errorKey, gh.tag ? { tag: gh.tag } : undefined);
+        broadcast({ status: "error", message });
+        return { ok: false as const, error: message };
+      }
+      autoUpdater.autoDownload = false;
+      autoUpdater.autoInstallOnAppQuit = false;
+      autoUpdater.disableWebInstaller = true;
+      autoUpdater.setFeedURL({ provider: "generic", url: gh.feedUrl });
+    } else {
+      applyElectronFeed(prefs);
+    }
+
     const result = await autoUpdater.checkForUpdates();
     const version = result?.updateInfo?.version ?? null;
     if (result?.isUpdateAvailable && version) {
@@ -148,7 +182,7 @@ async function runCheck(options?: {
     }
     return { ok: true as const, version };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = feedErrorMessage(error);
     broadcast({ status: "error", message });
     return { ok: false as const, error: message };
   }
@@ -216,7 +250,7 @@ export function setupAutoUpdater(
   autoUpdater.on("error", (err) => {
     broadcast({
       status: "error",
-      message: err instanceof Error ? err.message : String(err),
+      message: feedErrorMessage(err),
     });
   });
 
