@@ -1653,4 +1653,74 @@ button {
   transition: width 0.2s ease;
 }
 
+.video-subs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.video-track-select {
+  min-width: 220px;
+  max-width: 100%;
+  background: var(--bg0);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.video-subs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.video-subs-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg0);
+  padding: 8px 10px;
+}
+
+.video-subs-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+
+.video-subs-log {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg0);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.video-log-ok {
+  color: var(--accent);
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+}
+
+.video-log-warn {
+  color: var(--muted);
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+}
+
+.video-log-err {
+  color: #e57373;
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+}
+
 

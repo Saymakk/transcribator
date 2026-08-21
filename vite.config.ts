@@ -29,6 +29,8 @@ export default defineConfig({
                 "jszip",
                 "jschardet",
                 "word-extractor",
+                "ffmpeg-static",
+                "ffprobe-static",
               ],
             },
           },

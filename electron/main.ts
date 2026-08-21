@@ -17,6 +17,7 @@ import { extractDocumentText, extractMontageLines, setExtractLocale } from "./do
 import type { AppState, Layout, LocaleId, PuntoMode, PuntoPairId, TranslitMode } from "./shared/types";
 import { getPuntoPair } from "./dicts/pairs";
 import { DOCUMENT_EXTENSIONS } from "../src/shared/documentFormats";
+import { VIDEO_EXTENSIONS } from "../src/shared/videoFormats";
 import {
   EXPORT_FILTER_DEFS,
   ensureExportExtension,
@@ -26,6 +27,11 @@ import { getMessages, t, normalizeLocale } from "../src/shared/i18n";
 import { encodeExportContent } from "./exportDocument";
 import { formatChordLabel } from "../src/shared/hotkeys";
 import { applyUpdatePrefs, setupAutoUpdater } from "./updater";
+import {
+  extractSubtitlesFromVideos,
+  probeVideoSubtitles,
+  type ExtractSelection,
+} from "./subtitleExtract";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -64,6 +70,21 @@ function openDialogFilters() {
       name: t(m, "files.filterText"),
       extensions: ["txt", "md", "html", "htm", "xml", "json", "yaml", "yml", "log", "srt", "vtt", "ass", "ssa"],
     },
+    {
+      name: t(m, "files.filterVideo"),
+      extensions: [...VIDEO_EXTENSIONS],
+    },
+  ];
+}
+
+function videoOpenDialogFilters() {
+  const m = msg();
+  return [
+    {
+      name: t(m, "files.filterVideo"),
+      extensions: [...VIDEO_EXTENSIONS],
+    },
+    { name: t(m, "files.filterAll"), extensions: ["*"] },
   ];
 }
 
@@ -466,6 +487,64 @@ ipcMain.handle("file:openDocument", async () => {
           ? await extractMontageLines(name, bytes)
           : undefined;
         return { ok: true as const, text, montageLines };
+      } catch (error) {
+        return {
+          ok: false as const,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle("file:openVideos", async () => {
+    const result = await dialog.showOpenDialog({
+      title: t(msg(), "files.openVideoTitle"),
+      properties: ["openFile", "multiSelections"],
+      filters: videoOpenDialogFilters(),
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false as const, canceled: true as const };
+    }
+    return { ok: true as const, paths: result.filePaths };
+  });
+
+  ipcMain.handle("file:probeVideoSubtitles", async (_e, paths: string[]) => {
+    try {
+      const list = Array.isArray(paths) ? paths.map(String).filter(Boolean) : [];
+      if (list.length === 0) {
+        return { ok: false as const, error: "No video paths" };
+      }
+      const videos = [];
+      for (const p of list) {
+        videos.push(await probeVideoSubtitles(p));
+      }
+      return { ok: true as const, videos };
+    } catch (error) {
+      return {
+        ok: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  ipcMain.handle(
+    "file:extractSubtitles",
+    async (_e, paths: string[], selection: ExtractSelection) => {
+      try {
+        const list = Array.isArray(paths) ? paths.map(String).filter(Boolean) : [];
+        if (list.length === 0) {
+          return { ok: false as const, error: "No video paths" };
+        }
+        const sel: ExtractSelection =
+          selection?.mode === "track" && typeof selection.streamIndex === "number"
+            ? { mode: "track", streamIndex: selection.streamIndex }
+            : selection?.mode === "subtitleIndex" && typeof selection.subtitleIndex === "number"
+              ? { mode: "subtitleIndex", subtitleIndex: selection.subtitleIndex }
+              : selection?.mode === "language" && typeof selection.language === "string"
+                ? { mode: "language", language: selection.language }
+                : { mode: "all" };
+        const results = await extractSubtitlesFromVideos(list, sel);
+        return { ok: true as const, results };
       } catch (error) {
         return {
           ok: false as const,

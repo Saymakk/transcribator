@@ -51,7 +51,7 @@
       git commit -m "Release 1.0.1"
       git tag v1.0.1
       git push origin master
-      git push origin v1.0.1
+      git push origin v1.0.3
       ```
    5. В GitHub: **Actions** → workflow **Release** должен собрать Windows/macOS/Linux и залить файлы в [Releases](https://github.com/Saymakk/transcribator/releases). Нужны `Transcribator Setup …exe`, `latest.yml` и `.blockmap`.
    6. В установленном приложении: **Настройки → Обновления → GitHub Releases → Проверить обновления**.

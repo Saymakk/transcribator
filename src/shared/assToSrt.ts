@@ -176,8 +176,8 @@ function rowRoleName(row: AssEventRow): string {
   return key ? row.columns[key] ?? "" : "";
 }
 
-export function assToSrt(source: string, options: AssToSrtOptions): string {
-  const { rows } = parseAss(source);
+export function assParsedToSrt(parsed: AssParseResult, options: AssToSrtOptions): string {
+  const { rows } = parsed;
   if (rows.length === 0) return "";
 
   const blocks: string[] = [];
@@ -192,6 +192,10 @@ export function assToSrt(source: string, options: AssToSrtOptions): string {
     index += 1;
   }
   return blocks.join("\n\n") + (blocks.length ? "\n" : "");
+}
+
+export function assToSrt(source: string, options: AssToSrtOptions): string {
+  return assParsedToSrt(parseAss(source), options);
 }
 
 export function looksLikeAss(text: string): boolean {

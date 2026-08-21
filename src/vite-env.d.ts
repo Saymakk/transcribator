@@ -62,6 +62,56 @@ export type TranscribatorApi = {
   openDocuments: () => Promise<OpenFilesResult>;
   openTextOrPdf: () => Promise<OpenFileResult>;
   extractDocument: (name: string, bytes: ArrayBuffer) => Promise<ExtractResult>;
+  openVideos: () => Promise<
+    | { ok: true; paths: string[] }
+    | { ok: false; canceled: true }
+    | { ok: false; canceled: false; error: string }
+  >;
+  probeVideoSubtitles: (paths: string[]) => Promise<
+    | {
+        ok: true;
+        videos: Array<{
+          path: string;
+          name: string;
+          tracks: Array<{
+            streamIndex: number;
+            subtitleIndex: number;
+            codec: string;
+            language: string;
+            title: string;
+            isText: boolean;
+          }>;
+        }>;
+      }
+    | { ok: false; error: string }
+  >;
+  extractSubtitles: (
+    paths: string[],
+    selection:
+      | { mode: "all" }
+      | { mode: "track"; streamIndex: number }
+      | { mode: "subtitleIndex"; subtitleIndex: number }
+      | { mode: "language"; language: string },
+  ) => Promise<
+    | {
+        ok: true;
+        results: Array<{
+          videoPath: string;
+          videoName: string;
+          files: Array<{
+            videoPath: string;
+            videoName: string;
+            outPath: string;
+            outName: string;
+            streamIndex: number;
+            language: string;
+          }>;
+          skipped: Array<{ streamIndex: number; reason: string }>;
+          error?: string;
+        }>;
+      }
+    | { ok: false; error: string }
+  >;
   saveText: (suggestedName: string, content: string) => Promise<SaveFileResult>;
   openExternal: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   getAppVersion: () => Promise<string>;

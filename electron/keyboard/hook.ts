@@ -226,7 +226,9 @@ export class KeyboardEngine {
 
     const state = this.store.getState();
     if (!this.liveActive(state)) {
-      this.clearBuffers();
+      if (this.wordBuffer || this.strokes.length || this.pendingBoundary) {
+        this.clearBuffers();
+      }
       return;
     }
 

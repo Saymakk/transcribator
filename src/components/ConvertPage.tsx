@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { AssSrtPrefs, Layout } from "../shared/types";
 import { DEFAULT_ASS_SRT_PREFS } from "../shared/types";
 import {
@@ -10,14 +10,16 @@ import {
 } from "../shared/convert";
 import { formatSupportHint, isSupportedDocument } from "../shared/documentFormats";
 import { resolveAssFields } from "../shared/assSrtPrefs";
-import { assToSrt, looksLikeAss, parseAss } from "../shared/assToSrt";
+import { assParsedToSrt, looksLikeAss, parseAss } from "../shared/assToSrt";
 import {
   looksLikeMontage,
   montageLinesFromPlainText,
   parseMontage,
   type MontageLine,
 } from "../shared/montage";
+import { videoSupportHint } from "../shared/videoFormats";
 import { useLocale } from "../i18n/LocaleContext";
+import { VideoSubsPanel } from "./VideoSubsPanel";
 
 type Props = {
   layout: Layout;
@@ -25,7 +27,7 @@ type Props = {
   onAssSrtPrefsChange: (prefs: AssSrtPrefs) => void;
 };
 
-type ConvertMode = "translit" | "ass-srt" | "binary" | "morse";
+type ConvertMode = "translit" | "ass-srt" | "binary" | "morse" | "video-subs";
 type CodeDirection = "encode" | "decode" | "auto";
 type LoadedItem = {
   name: string;
@@ -69,7 +71,12 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
   const skipPersist = useRef(true);
   const prefsFieldsKey = prefs.fields.join("\0");
 
-  const assParsed = useMemo(() => (input.trim() ? parseAss(input) : null), [input]);
+  // Defer heavy ASS parse while typing so the UI stays responsive.
+  const deferredInput = useDeferredValue(input);
+  const assParsed = useMemo(
+    () => (mode === "ass-srt" && deferredInput.trim() ? parseAss(deferredInput) : null),
+    [mode, deferredInput],
+  );
   const formatColumns = assParsed?.formatColumns ?? [];
   const formatKey = formatColumns.join("\0");
 
@@ -157,18 +164,17 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
     [montageLines],
   );
 
-  const srtOut = useMemo(
-    () =>
-      assToSrt(input, {
-        fields: assFields.length
-          ? assFields
-          : resolveAssFields(formatColumns, prefs.fields),
-        separator: assSeparator,
-        keepEmpty: assKeepEmpty,
-        montage: montageCast,
-      }),
-    [input, assFields, assSeparator, assKeepEmpty, formatColumns, prefs.fields, montageCast],
-  );
+  const srtOut = useMemo(() => {
+    if (!assParsed) return "";
+    return assParsedToSrt(assParsed, {
+      fields: assFields.length
+        ? assFields
+        : resolveAssFields(formatColumns, prefs.fields),
+      separator: assSeparator,
+      keepEmpty: assKeepEmpty,
+      montage: montageCast,
+    });
+  }, [assParsed, assFields, assSeparator, assKeepEmpty, formatColumns, prefs.fields, montageCast]);
 
   const output =
     mode === "ass-srt"
@@ -336,7 +342,9 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
           <p>
             {mode === "ass-srt"
               ? t("convert.assLead")
-              : t("convert.lead", { formats: formatSupportHint(), layout: layout.name })}
+              : mode === "video-subs"
+                ? t("convert.videoLead", { formats: videoSupportHint() })
+                : t("convert.lead", { formats: formatSupportHint(), layout: layout.name })}
           </p>
         </div>
       </div>
@@ -356,6 +364,13 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
             onClick={() => setMode("ass-srt")}
           >
             {t("convert.modeAssSrt")}
+          </button>
+          <button
+            type="button"
+            className={`btn ${mode === "video-subs" ? "active-forward" : ""}`}
+            onClick={() => setMode("video-subs")}
+          >
+            {t("convert.modeVideoSubs")}
           </button>
           <button
             type="button"
@@ -415,27 +430,33 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
             </button>
           </div>
         )}
-        <div className="row-actions">
-          <button type="button" className="btn" disabled={busy} onClick={() => void loadFile()}>
-            {busy ? t("convert.loading") : t("convert.file")}
-          </button>
-          <button type="button" className="btn" onClick={() => setInput("")}>
-            {t("convert.clear")}
-          </button>
-          <button type="button" className="btn" onClick={() => void copyOut()} disabled={!output}>
-            {t("convert.copy")}
-          </button>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => void saveResult()}
-            disabled={!output}
-          >
-            {mode === "ass-srt" ? t("convert.assSave") : t("convert.save")}
-          </button>
-        </div>
+        {mode !== "video-subs" && (
+          <div className="row-actions">
+            <button type="button" className="btn" disabled={busy} onClick={() => void loadFile()}>
+              {busy ? t("convert.loading") : t("convert.file")}
+            </button>
+            <button type="button" className="btn" onClick={() => setInput("")}>
+              {t("convert.clear")}
+            </button>
+            <button type="button" className="btn" onClick={() => void copyOut()} disabled={!output}>
+              {t("convert.copy")}
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => void saveResult()}
+              disabled={!output}
+            >
+              {mode === "ass-srt" ? t("convert.assSave") : t("convert.save")}
+            </button>
+          </div>
+        )}
       </div>
 
+      {mode === "video-subs" ? (
+        <VideoSubsPanel />
+      ) : (
+        <>
       {mode === "ass-srt" && (
         <div className="tool-block ass-options">
           <div className="ass-montage-row">
@@ -644,6 +665,8 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
           </label>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

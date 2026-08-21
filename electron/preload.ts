@@ -83,6 +83,58 @@ const api = {
   openTextOrPdf: (): Promise<OpenFileResult> => ipcRenderer.invoke("file:openDocument"),
   extractDocument: (name: string, bytes: ArrayBuffer): Promise<ExtractResult> =>
     ipcRenderer.invoke("file:extractDocument", name, bytes),
+  openVideos: (): Promise<
+    | { ok: true; paths: string[] }
+    | { ok: false; canceled: true }
+    | { ok: false; canceled: false; error: string }
+  > => ipcRenderer.invoke("file:openVideos"),
+  probeVideoSubtitles: (
+    paths: string[],
+  ): Promise<
+    | {
+        ok: true;
+        videos: Array<{
+          path: string;
+          name: string;
+          tracks: Array<{
+            streamIndex: number;
+            subtitleIndex: number;
+            codec: string;
+            language: string;
+            title: string;
+            isText: boolean;
+          }>;
+        }>;
+      }
+    | { ok: false; error: string }
+  > => ipcRenderer.invoke("file:probeVideoSubtitles", paths),
+  extractSubtitles: (
+    paths: string[],
+    selection:
+      | { mode: "all" }
+      | { mode: "track"; streamIndex: number }
+      | { mode: "subtitleIndex"; subtitleIndex: number }
+      | { mode: "language"; language: string },
+  ): Promise<
+    | {
+        ok: true;
+        results: Array<{
+          videoPath: string;
+          videoName: string;
+          files: Array<{
+            videoPath: string;
+            videoName: string;
+            outPath: string;
+            outName: string;
+            streamIndex: number;
+            language: string;
+          }>;
+          skipped: Array<{ streamIndex: number; reason: string }>;
+          error?: string;
+        }>;
+      }
+    | { ok: false; error: string }
+  > => ipcRenderer.invoke("file:extractSubtitles", paths, selection),
   saveText: (suggestedName: string, content: string): Promise<SaveFileResult> =>
     ipcRenderer.invoke("file:saveText", suggestedName, content),
   openExternal: (url: string): Promise<{ ok: true } | { ok: false; error: string }> =>

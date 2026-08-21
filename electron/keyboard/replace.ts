@@ -23,15 +23,15 @@ async function deletePreviousChars(charCount: number): Promise<void> {
   for (let i = 0; i < charCount; i += 1) {
     uIOhook.keyTap(UiohookKey.Backspace);
     // Даём целевому полю успевать обрабатывать длинные слова
-    if ((i + 1) % 6 === 0) await sleep(4);
+    if ((i + 1) % 12 === 0) await sleep(3);
   }
-  await sleep(16);
+  await sleep(10);
 }
 
 async function pasteText(text: string): Promise<void> {
   const previous = clipboard.readText();
   clipboard.writeText(text);
-  await sleep(12);
+  await sleep(8);
 
   if (process.platform === "darwin") {
     uIOhook.keyTap(UiohookKey.V, [UiohookKey.Meta]);
@@ -39,7 +39,7 @@ async function pasteText(text: string): Promise<void> {
     uIOhook.keyTap(UiohookKey.V, CTRL);
   }
 
-  await sleep(40);
+  await sleep(28);
   try {
     clipboard.writeText(previous);
   } catch {

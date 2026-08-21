@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import type { AppState, HotkeysConfig, Layout } from "./shared/types";
 import { DEFAULT_ASS_SRT_PREFS } from "./shared/types";
 import { findReverseConflicts, transliterateWord } from "./shared/engine";
@@ -54,12 +54,14 @@ export default function App() {
         initial.layouts.find((l) => l.id === initial.activeLayoutId) ?? initial.layouts[0];
       setDraft(structuredClone(active));
       unsub = window.transcribator.onStateChanged((next) => {
-        setState(next);
-        setDraft((prev) => {
-          if (dirty && prev) return prev;
-          const layout =
-            next.layouts.find((l) => l.id === next.activeLayoutId) ?? next.layouts[0];
-          return structuredClone(layout);
+        startTransition(() => {
+          setState(next);
+          setDraft((prev) => {
+            if (dirty && prev) return prev;
+            const layout =
+              next.layouts.find((l) => l.id === next.activeLayoutId) ?? next.layouts[0];
+            return structuredClone(layout);
+          });
         });
       });
       unsubNav = window.transcribator.onNavigate((sec) => {
