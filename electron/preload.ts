@@ -143,6 +143,8 @@ const api = {
   getUpdateStatus: (): Promise<unknown> => ipcRenderer.invoke("update:getStatus"),
   checkForUpdates: (): Promise<unknown> => ipcRenderer.invoke("update:check"),
   downloadAndInstallUpdate: (): Promise<void> => ipcRenderer.invoke("update:downloadAndInstall"),
+  pauseUpdateDownload: (): Promise<boolean> => ipcRenderer.invoke("update:pauseDownload"),
+  resumeUpdateDownload: (): Promise<void> => ipcRenderer.invoke("update:resumeDownload"),
   installUpdate: (): Promise<void> => ipcRenderer.invoke("update:install"),
   onStateChanged: (cb: (state: AppState) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: AppState) => cb(state);

@@ -8,6 +8,7 @@ export type UpdateStatus =
   | { status: "available"; version: string; releaseNotes?: string | null }
   | { status: "not-available"; version: string }
   | { status: "downloading"; percent: number }
+  | { status: "paused"; version: string; percent: number }
   | { status: "downloaded"; version: string }
   | { status: "error"; message: string }
   | { status: "disabled"; reason: string };
@@ -42,6 +43,14 @@ export function UpdatePanel({ compact = false, prefs, onPrefsChange }: Props) {
     void window.transcribator.installUpdate();
   };
 
+  const pause = () => {
+    void window.transcribator.pauseUpdateDownload();
+  };
+
+  const resume = () => {
+    void window.transcribator.resumeUpdateDownload();
+  };
+
   const saveFeed = () => {
     onPrefsChange({
       provider: prefs.provider,
@@ -58,9 +67,17 @@ export function UpdatePanel({ compact = false, prefs, onPrefsChange }: Props) {
     body = t("update.upToDate", { version: status.version });
   else if (status.status === "downloading")
     body = t("update.downloading", { percent: Math.round(status.percent) });
+  else if (status.status === "paused")
+    body = t("update.paused", {
+      version: status.version,
+      percent: Math.round(status.percent),
+    });
   else if (status.status === "downloaded")
     body = t("update.downloaded", { version: status.version });
   else if (status.status === "error") body = t("update.error", { message: status.message });
+
+  const progressPercent =
+    status.status === "downloading" || status.status === "paused" ? status.percent : 0;
 
   return (
     <section className={`editor-card settings-card ${compact ? "update-compact" : ""}`}>
@@ -68,9 +85,12 @@ export function UpdatePanel({ compact = false, prefs, onPrefsChange }: Props) {
       <p className="hint">
         {t("update.version", { version: appVersion || "…" })} · {body}
       </p>
-      {status.status === "downloading" && (
-        <div className="update-progress" aria-hidden>
-          <div style={{ width: `${Math.min(100, Math.max(0, status.percent))}%` }} />
+      {(status.status === "downloading" || status.status === "paused") && (
+        <div
+          className={`update-progress${status.status === "paused" ? " is-paused" : ""}`}
+          aria-hidden
+        >
+          <div style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }} />
         </div>
       )}
 
@@ -123,7 +143,11 @@ export function UpdatePanel({ compact = false, prefs, onPrefsChange }: Props) {
           type="button"
           className="btn"
           onClick={check}
-          disabled={status.status === "checking" || status.status === "downloading"}
+          disabled={
+            status.status === "checking" ||
+            status.status === "downloading" ||
+            status.status === "paused"
+          }
         >
           {t("update.check")}
         </button>
@@ -134,6 +158,16 @@ export function UpdatePanel({ compact = false, prefs, onPrefsChange }: Props) {
             onClick={() => void window.transcribator.downloadAndInstallUpdate()}
           >
             {t("update.downloadInstall")}
+          </button>
+        )}
+        {status.status === "downloading" && (
+          <button type="button" className="btn" onClick={pause}>
+            {t("update.pause")}
+          </button>
+        )}
+        {status.status === "paused" && (
+          <button type="button" className="btn primary" onClick={resume}>
+            {t("update.resume")}
           </button>
         )}
         {status.status === "downloaded" && (

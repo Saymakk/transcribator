@@ -44,14 +44,14 @@
 1. **GitHub Releases** (по умолчанию) — репозиторий уже прописан: [Saymakk/transcribator](https://github.com/Saymakk/transcribator).
    1. Репозиторий должен быть **публичным** (иначе приложение не скачает файлы без токена).
    2. Закоммитьте и запушьте код вместе с `.github/workflows/release.yml`.
-   3. Поднимите `version` в `package.json` (например `1.0.1`) — она должна быть **выше**, чем у уже установленных пользователей.
+   3. Поднимите `version` в `package.json` (например `1.0.4`) — она должна быть **выше**, чем у уже установленных пользователей.
    4. Создайте и отправьте тег той же версии:
       ```bash
       git add -A
-      git commit -m "Release 1.0.1"
-      git tag v1.0.1
+      git commit -m "Release 1.0.4"
+      git tag v1.0.4
       git push origin master
-      git push origin v1.0.3
+      git push origin v1.0.4
       ```
    5. В GitHub: **Actions** → workflow **Release** должен собрать Windows/macOS/Linux и залить файлы в [Releases](https://github.com/Saymakk/transcribator/releases). Нужны `Transcribator Setup …exe`, `latest.yml` и `.blockmap`.
    6. В установленном приложении: **Настройки → Обновления → GitHub Releases → Проверить обновления**.

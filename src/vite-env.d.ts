@@ -118,6 +118,8 @@ export type TranscribatorApi = {
   getUpdateStatus: () => Promise<import("./components/UpdatePanel").UpdateStatus>;
   checkForUpdates: () => Promise<unknown>;
   downloadAndInstallUpdate: () => Promise<void>;
+  pauseUpdateDownload: () => Promise<boolean>;
+  resumeUpdateDownload: () => Promise<void>;
   installUpdate: () => Promise<void>;
   onStateChanged: (cb: (state: AppState) => void) => () => void;
   onNavigate: (cb: (section: string) => void) => () => void;

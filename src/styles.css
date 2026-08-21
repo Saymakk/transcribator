@@ -1653,6 +1653,10 @@ button {
   transition: width 0.2s ease;
 }
 
+.update-progress.is-paused > div {
+  background: var(--muted);
+}
+
 .video-subs-panel {
   display: flex;
   flex-direction: column;

@@ -64,19 +64,48 @@ async function readText(url: string): Promise<string> {
   return text;
 }
 
-async function downloadFile(url: string, dest: string, onProgress: ProgressFn): Promise<void> {
-  const res = await net.fetch(url, { redirect: "follow" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+async function downloadFile(
+  url: string,
+  dest: string,
+  onProgress: ProgressFn,
+  options?: { signal?: AbortSignal; startAt?: number },
+): Promise<void> {
+  const startAt = Math.max(0, options?.startAt ?? 0);
+  const headers: Record<string, string> = {};
+  if (startAt > 0) headers.Range = `bytes=${startAt}-`;
+
+  const res = await net.fetch(url, {
+    redirect: "follow",
+    headers,
+    signal: options?.signal,
+  });
+  if (!(res.ok || res.status === 206)) throw new Error(`HTTP ${res.status}`);
   const ctype = (res.headers.get("content-type") || "").toLowerCase();
   if (ctype.includes("text/html")) {
     throw new Error("Got an HTML page instead of the installer (direct download required)");
   }
-  const total = Number(res.headers.get("content-length") || 0);
+
+  const resumed = startAt > 0 && res.status === 206;
+  if (startAt > 0 && !resumed && fs.existsSync(dest)) {
+    // Server ignored Range — rewrite from scratch.
+    fs.unlinkSync(dest);
+  }
+
+  const contentLength = Number(res.headers.get("content-length") || 0);
+  const total = resumed
+    ? startAt + contentLength
+    : contentLength || Number(res.headers.get("content-length") || 0);
   if (!res.body) throw new Error("Empty download body");
   fs.mkdirSync(path.dirname(dest), { recursive: true });
+
   const nodeStream = Readable.fromWeb(res.body as import("stream/web").ReadableStream);
-  let transferred = 0;
+  let transferred = resumed ? startAt : 0;
   const started = Date.now();
+  const onAbort = () => {
+    nodeStream.destroy(new Error("aborted"));
+  };
+  options?.signal?.addEventListener("abort", onAbort, { once: true });
+
   nodeStream.on("data", (chunk: Buffer) => {
     transferred += chunk.length;
     const elapsed = Math.max(0.001, (Date.now() - started) / 1000);
@@ -84,10 +113,116 @@ async function downloadFile(url: string, dest: string, onProgress: ProgressFn): 
       percent: total > 0 ? (transferred / total) * 100 : 0,
       transferred,
       total,
-      bytesPerSecond: transferred / elapsed,
+      bytesPerSecond: (transferred - (resumed ? startAt : 0)) / elapsed,
     });
   });
-  await pipeline(nodeStream, fs.createWriteStream(dest));
+
+  try {
+    await pipeline(
+      nodeStream,
+      fs.createWriteStream(dest, { flags: resumed ? "a" : "w" }),
+    );
+  } finally {
+    options?.signal?.removeEventListener("abort", onAbort);
+  }
+}
+
+type CustomDownloadJob = {
+  url: string;
+  dest: string;
+  version: string;
+  transferred: number;
+  total: number;
+};
+
+let customJob: CustomDownloadJob | null = null;
+let customAbort: AbortController | null = null;
+
+export function isCustomDownloadActive(): boolean {
+  return Boolean(customAbort);
+}
+
+export function getCustomDownloadSnapshot(): {
+  version: string;
+  percent: number;
+  transferred: number;
+  total: number;
+} | null {
+  if (!customJob) return null;
+  const percent =
+    customJob.total > 0 ? (customJob.transferred / customJob.total) * 100 : 0;
+  return {
+    version: customJob.version,
+    percent,
+    transferred: customJob.transferred,
+    total: customJob.total,
+  };
+}
+
+export function pauseCustomDownload(): boolean {
+  if (!customAbort) return false;
+  customAbort.abort();
+  customAbort = null;
+  return true;
+}
+
+export async function resumeCustomDownload(
+  broadcast: (p: UpdateStatusPayload) => void,
+): Promise<boolean> {
+  if (!customJob) return false;
+  await runCustomInstallerDownload(customJob, broadcast);
+  return true;
+}
+
+async function runCustomInstallerDownload(
+  job: CustomDownloadJob,
+  broadcast: (p: UpdateStatusPayload) => void,
+): Promise<void> {
+  customJob = job;
+  const controller = new AbortController();
+  customAbort = controller;
+  const existing =
+    fs.existsSync(job.dest) && job.transferred > 0
+      ? fs.statSync(job.dest).size
+      : 0;
+  const startAt = existing > 0 ? existing : 0;
+  job.transferred = startAt;
+
+  try {
+    await downloadFile(
+      job.url,
+      job.dest,
+      (p) => {
+        job.transferred = p.transferred;
+        job.total = p.total || job.total;
+        broadcast({
+          status: "downloading",
+          percent: p.percent,
+          bytesPerSecond: p.bytesPerSecond,
+          transferred: p.transferred,
+          total: p.total,
+        });
+      },
+      { signal: controller.signal, startAt },
+    );
+    pendingInstaller = job.dest;
+    customAbort = null;
+    broadcast({ status: "downloaded", version: job.version });
+  } catch (error) {
+    customAbort = null;
+    if (controller.signal.aborted || (error instanceof Error && /aborted|AbortError/i.test(error.message))) {
+      const percent = job.total > 0 ? (job.transferred / job.total) * 100 : 0;
+      broadcast({
+        status: "paused",
+        version: job.version,
+        percent,
+        transferred: job.transferred,
+        total: job.total,
+      });
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function checkCustomFeed(
@@ -136,17 +271,16 @@ export async function checkCustomFeed(
       return { ok: true, version: meta.version, updateAvailable: true };
     }
     const dest = path.join(app.getPath("temp"), "transcribator-updates", fileName);
-    await downloadFile(installerUrl, dest, (p) => {
-      broadcast({
-        status: "downloading",
-        percent: p.percent,
-        bytesPerSecond: p.bytesPerSecond,
-        transferred: p.transferred,
-        total: p.total,
-      });
-    });
-    pendingInstaller = dest;
-    broadcast({ status: "downloaded", version: meta.version });
+    await runCustomInstallerDownload(
+      {
+        url: installerUrl,
+        dest,
+        version: meta.version,
+        transferred: 0,
+        total: 0,
+      },
+      broadcast,
+    );
     return { ok: true, version: meta.version, updateAvailable: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

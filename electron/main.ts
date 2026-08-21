@@ -113,6 +113,9 @@ function assetPath(...parts: string[]): string {
 
 function showMainWindowMaximized(): void {
   if (!mainWindow) return;
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
   if (!mainWindow.isVisible()) {
     mainWindow.maximize();
     mainWindow.show();
@@ -667,46 +670,55 @@ ipcMain.handle("file:openDocument", async () => {
   ipcMain.handle("app:getVersion", () => app.getVersion());
 }
 
-app.whenReady().then(() => {
-  store = new AppStore();
-  setExtractLocale(store.getState().locale);
-  keyboardEngine = new KeyboardEngine(store);
-  keyboardEngine.setOnModeChange(() => broadcastState(store.getState()));
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    showMainWindowMaximized();
+  });
 
-  installAppMenu();
-  registerIpc();
-  createWindow();
-  createTray();
-  syncAppFocusSuppress();
+  app.whenReady().then(() => {
+    store = new AppStore();
+    setExtractLocale(store.getState().locale);
+    keyboardEngine = new KeyboardEngine(store);
+    keyboardEngine.setOnModeChange(() => broadcastState(store.getState()));
 
-  const login = app.getLoginItemSettings();
-  if (store.getState().launchAtLogin !== login.openAtLogin) {
-    app.setLoginItemSettings({
-      openAtLogin: store.getState().launchAtLogin,
-      path: process.execPath,
-    });
-  }
+    installAppMenu();
+    registerIpc();
+    createWindow();
+    createTray();
+    syncAppFocusSuppress();
 
-  const ok = keyboardEngine.start();
-  broadcastState(store.setHookActive(ok));
+    const login = app.getLoginItemSettings();
+    if (store.getState().launchAtLogin !== login.openAtLogin) {
+      app.setLoginItemSettings({
+        openAtLogin: store.getState().launchAtLogin,
+        path: process.execPath,
+      });
+    }
 
-  setupAutoUpdater(
-    () => store.getState().updatePrefs,
-    () => store.getState().locale,
-  );
+    const ok = keyboardEngine.start();
+    broadcastState(store.setHookActive(ok));
 
-  nativeTheme.themeSource = "system";
-});
+    setupAutoUpdater(
+      () => store.getState().updatePrefs,
+      () => store.getState().locale,
+    );
 
-app.on("window-all-closed", () => {
-  // remain in tray
-});
+    nativeTheme.themeSource = "system";
+  });
 
-app.on("before-quit", () => {
-  isQuitting = true;
-  keyboardEngine?.stop();
-});
+  app.on("window-all-closed", () => {
+    // remain in tray
+  });
 
-app.on("activate", () => {
-  showMainWindowMaximized();
-});
+  app.on("before-quit", () => {
+    isQuitting = true;
+    keyboardEngine?.stop();
+  });
+
+  app.on("activate", () => {
+    showMainWindowMaximized();
+  });
+}
