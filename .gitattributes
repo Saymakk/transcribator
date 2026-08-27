@@ -1,0 +1,4 @@
+# Shell scripts for macOS installers must use LF or shebang breaks.
+build/pkg-scripts/** text eol=lf
+build/mac/**.command text eol=lf
+build/mac/**.txt text eol=lf

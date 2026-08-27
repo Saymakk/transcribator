@@ -30,8 +30,19 @@
 | ОС | Артефакт | Хук клавиатуры |
 |----|----------|----------------|
 | Windows | NSIS `.exe` | обычно без доп. прав |
-| macOS | `.dmg` + `.zip` (для автообновления) | нужен Accessibility |
+| macOS | `.pkg` (рекомендуется), `.dmg`, `.zip` | нужен Accessibility |
 | Linux | AppImage, `.deb` | надёжнее на X11 |
+
+### macOS: «приложение повреждено»
+
+Сборка без подписи Apple. После установки карантин нужно снять.
+
+- **PKG** — снимает карантин автоматически (`postinstall`).
+- **DMG** — дважды щёлкните `Install Transcribator.command` в окне диска (копирует в `/Applications` и снимает карантин), либо прочитайте `README (macOS).txt`.
+- Вручную после копирования в Программы:
+  ```bash
+  xattr -cr /Applications/Transcribator.app
+  ```
 
 Обновления **не компилируют исходники** и **не качают распакованный проект**. Приложение скачивает готовый установщик (`electron-updater`). С blockmap качаются только изменившиеся куски файла, а не все 100+ МБ.
 
@@ -44,10 +55,10 @@
    4. Создайте и отправьте тег той же версии:
       ```bash
       git add -A
-      git commit -m "Release 1.0.5"
-      git tag v1.0.5
+      git commit -m "Release 1.0.6"
+      git tag v1.0.6
       git push origin master
-      git push origin v1.0.5
+      git push origin v1.0.6
       ```
    5. В GitHub: **Actions** → workflow **Release** должен собрать Windows/macOS/Linux и залить файлы в [Releases](https://github.com/Saymakk/transcribator/releases). Нужны `Transcribator Setup …exe`, `latest.yml` и `.blockmap`.
    6. В установленном приложении: **Настройки → Обновления → GitHub Releases → Проверить обновления**.

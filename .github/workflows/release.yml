@@ -29,6 +29,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Make mac installer scripts executable
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x "build/pkg-scripts/postinstall"
+          chmod +x "build/mac/Install Transcribator.command"
       - name: Build
         run: npm run build
       - name: Publish to GitHub Releases

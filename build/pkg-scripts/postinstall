@@ -1,0 +1,19 @@
+#!/bin/bash
+# Runs after Transcribator.pkg installs the app.
+# Clears Gatekeeper quarantine so unsigned builds can open.
+
+set -euo pipefail
+
+DEST_DIR="${2:-/Applications}"
+APP="${DEST_DIR%/}/Transcribator.app"
+
+if [[ ! -d "$APP" && -d "/Applications/Transcribator.app" ]]; then
+  APP="/Applications/Transcribator.app"
+fi
+
+if [[ -d "$APP" ]]; then
+  /usr/bin/xattr -cr "$APP" || true
+  /usr/bin/logger -t Transcribator "Cleared quarantine on $APP"
+fi
+
+exit 0

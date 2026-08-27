@@ -1,6 +1,6 @@
 {
   "name": "transcribator",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Глобальный транслитератор русского текста с пользовательскими раскладками",
   "main": "dist-electron/main.js",
   "author": {
@@ -88,6 +88,7 @@
     "mac": {
       "target": [
         "dmg",
+        "pkg",
         "zip"
       ],
       "icon": "assets/icon.png",
@@ -97,6 +98,43 @@
         "NSAppleEventsUsageDescription": "Transcribator нужен доступ для эмуляции ввода при автозамене.",
         "NSAccessibilityUsageDescription": "Transcribator нужен доступ Accessibility для глобального перехвата клавиатуры."
       }
+    },
+    "dmg": {
+      "title": "Transcribator",
+      "contents": [
+        {
+          "x": 140,
+          "y": 160
+        },
+        {
+          "x": 420,
+          "y": 160,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 140,
+          "y": 360,
+          "type": "file",
+          "path": "build/mac/Install Transcribator.command",
+          "name": "Install Transcribator.command"
+        },
+        {
+          "x": 420,
+          "y": 360,
+          "type": "file",
+          "path": "build/mac/README-INSTALL.txt",
+          "name": "README (macOS).txt"
+        }
+      ]
+    },
+    "pkg": {
+      "scripts": "build/pkg-scripts",
+      "installLocation": "/Applications",
+      "allowAnywhere": false,
+      "allowCurrentUserHome": false,
+      "allowRootDirectory": true,
+      "isRelocatable": false
     },
     "linux": {
       "target": [
