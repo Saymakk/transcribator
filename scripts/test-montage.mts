@@ -13,6 +13,22 @@ assert.deepEqual(parseActorLine("НАСЫРОВА, ДЖЭССИ, ХАЙДИ, С�
   name: "НАСЫРОВА",
   roles: ["ДЖЭССИ", "ХАЙДИ", "СЫН", "ХОРМЖ"],
 });
+const pastorRoles = new Set(["МАЙКА", "АННА", "ЭРИКА", "ЭБИГЕЙЛ", "ДЖОНПОЛ", "ЭРИКА"]);
+assert.deepEqual(
+  parseActorLine("ИВАНОВА: МАЙКА, АННА, ЭРИКА, ЭБИГЕЙЛ,", pastorRoles),
+  {
+    name: "ИВАНОВА",
+    roles: ["МАЙКА", "АННА", "ЭРИКА", "ЭБИГЕЙЛ"],
+  },
+);
+assert.deepEqual(parseActorLine("ДАСЕВИЧ: ДЖОНПОЛ,", new Set(["ДЖОНПОЛ"])), {
+  name: "ДАСЕВИЧ",
+  roles: ["ДЖОНПОЛ"],
+});
+assert.deepEqual(parseActorLine("ОСТРОУХОВА: ЭРИКА,", new Set(["ЭРИКА"])), {
+  name: "ОСТРОУХОВА",
+  roles: ["ЭРИКА"],
+});
 assert.equal(parseActorLine("ЭМИЛИ УЛИЦА РАНЧ, 1200", known), null);
 assert.equal(parseActorLine("Друзья навек, ковбой!", known), null);
 

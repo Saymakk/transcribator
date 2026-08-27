@@ -12,8 +12,6 @@ export type Layout = {
 
 export type TranslitMode = "off" | "forward" | "reverse";
 
-export type PuntoMode = "off" | "a2b" | "b2a" | "auto";
-
 export type PuntoPairId = "ru-en" | "ru-fr" | "ru-es" | "ar-lat" | "zh-py";
 
 export type PuntoDictEntry = {
@@ -63,9 +61,6 @@ export type AppState = {
   layouts: Layout[];
   activeLayoutId: string;
   mode: TranslitMode;
-  puntoMode: PuntoMode;
-  puntoPairId: PuntoPairId;
-  puntoDictionary: PuntoDictEntry[];
   customPalettes: CustomPalette[];
   launchAtLogin: boolean;
   hookActive: boolean;

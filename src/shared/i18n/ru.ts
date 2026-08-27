@@ -1,11 +1,11 @@
-﻿import type { Messages } from "./en";
+import type { Messages } from "./en";
 
 export const ru: Messages = {
   "meta": {
     "nativeName": "Русский"
   },
   "app": {
-    "brandSubtitle": "Раскладки, конвертер, Пунто и текст",
+    "brandSubtitle": "Раскладки, конвертер и текст",
     "loading": "Загрузка…",
     "saveConfirm": "Сохранить изменения в текущей раскладке?",
     "renamePrompt": "Название раскладки",
@@ -23,8 +23,7 @@ export const ru: Messages = {
     "layoutsHint": "Правила и палитра",
     "convert": "Конвертер",
     "convertHint": "Текст и файлы",
-    "punto": "Пунто",
-    "puntoHint": "Исправление раскладки",
+
     "transform": "Текст",
     "transformHint": "Регистр и обёртка",
     "settings": "Настройки",
@@ -35,7 +34,6 @@ export const ru: Messages = {
     "forward": "Прямой",
     "reverse": "Обратный",
     "off": "Выкл",
-    "punto": "Пунто",
     "hookOk": "Хук",
     "hookBad": "Нет хука",
     "undoHint": "Ctrl×2 = отмена",
@@ -44,13 +42,7 @@ export const ru: Messages = {
     "statusForward": "Прямой: кириллица → алфавит активной раскладки",
     "statusReverse": "Обратный: алфавит раскладки → кириллица",
     "statusOff": "Транслит выключен",
-    "puntoOff": "Пунто {pair}: выкл",
-    "puntoOn": "Пунто {pair}: {dir}",
     "clickCycleTranslit": "Нажмите, чтобы изменить режим транслита (выкл → прямой → обратный). Прямой: кириллица заменяется алфавитом активной раскладки после пробела или знака препинания.",
-    "auto": "Авто",
-    "clickCyclePunto": "Нажмите, чтобы изменить режим Пунто",
-    "puntoAuto": "Пунто {pair}: авто ↔",
-    "puntoAutoHint": "Оба направления по словарю",
     "undoHintMs": "Ctrl×2 ≤{ms}мс = отмена",
     "undoOff": "Отмена выкл"
   },
@@ -154,6 +146,14 @@ export const ru: Messages = {
     "result": "Результат",
     "placeholder": "Вставьте текст здесь…",
     "modeTranslit": "Транслит",
+    "modePunto": "Ручная конвертация пунто",
+    "puntoLead": "Исправление текста с неверной раскладкой для языковой пары. Авто выбирает направление (кириллица → латиница или наоборот для пар раскладки; словарные пары по умолчанию A→B).",
+    "puntoAuto": "Авто",
+    "puntoPair": "Языковая пара",
+    "puntoCurrent": "Сейчас: {label}",
+    "puntoLoadingDict": "загрузка словаря…",
+    "puntoDictWords": "словарь пары: {n} слов",
+    "puntoAutoResolved": "авто → {dir}",
     "modeAssSrt": "ASS → SRT",
     "modeVideoSubs": "Видео → субтитры",
     "assLead": "Конвертация субтитров ASS/SSA в SRT. Можно приложить монтажку (DOCX): имена актёров подставятся перед текстом реплики. ASS и монтажку можно выбрать сразу или по очереди.",
@@ -206,32 +206,6 @@ export const ru: Messages = {
     "field_marginL": "MarginL",
     "field_marginR": "MarginR",
     "field_marginV": "MarginV"
-  },
-  "punto": {
-    "title": "Punto Switcher",
-    "lead": "Выберите языковую пару — Punto работает только по ней. По умолчанию Русский ↔ English. Отмена: двойной Ctrl.",
-    "pair": "1. Языковая пара",
-    "direction": "Направление",
-    "off": "Выкл",
-    "live": "2. Живой режим (после каждого слова)",
-    "liveHintOff": "Выберите направление — или оставьте выкл.",
-    "dictionary": "4. Свой словарь",
-    "dictHint": "Переопределяет записи пакета для активной пары. Одна пара на строку: опечатка → правильно",
-    "add": "Добавить строку",
-    "saveDict": "Сохранить словарь",
-    "preview": "3. Ручная конвертация",
-    "run": "Конвертировать",
-    "from": "из",
-    "to": "в",
-    "current": "Сейчас: {label}",
-    "loadingDict": "загрузка словаря…",
-    "dictWords": "словарь пары: {n} слов",
-    "auto": "Авто",
-    "source": "Исходный текст",
-    "result": "Результат",
-    "clear": "Очистить",
-    "copy": "Копировать",
-    "undoHint": "Двойной Ctrl отменяет последнюю замену."
   },
   "transform": {
     "title": "Преобразования текста",

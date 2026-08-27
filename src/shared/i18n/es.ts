@@ -1,11 +1,11 @@
-﻿import type { Messages } from "./en";
+import type { Messages } from "./en";
 
 export const es: Messages = {
   "meta": {
     "nativeName": "Español"
   },
   "app": {
-    "brandSubtitle": "Diseños, conversor, Punto y texto",
+    "brandSubtitle": "Diseños, conversor y texto",
     "loading": "Cargando…",
     "saveConfirm": "¿Guardar los cambios en el diseño actual?",
     "renamePrompt": "Nombre del diseño",
@@ -23,8 +23,7 @@ export const es: Messages = {
     "layoutsHint": "Reglas y paleta",
     "convert": "Conversor",
     "convertHint": "Texto y archivos",
-    "punto": "Punto",
-    "puntoHint": "Corrector de diseño",
+
     "transform": "Texto",
     "transformHint": "Mayúsculas y ajuste",
     "settings": "Settings",
@@ -35,7 +34,6 @@ export const es: Messages = {
     "forward": "Directo",
     "reverse": "Inverso",
     "off": "Apagado",
-    "punto": "Punto",
     "hookOk": "Hook",
     "hookBad": "Sin hook",
     "undoHint": "Ctrl×2 = deshacer",
@@ -44,13 +42,7 @@ export const es: Messages = {
     "statusForward": "Directo: RU → diseño",
     "statusReverse": "Inverso: diseño → RU",
     "statusOff": "Transliteración desactivada",
-    "puntoOff": "Punto {pair}: apagado",
-    "puntoOn": "Punto {pair}: {dir}",
     "clickCycleTranslit": "Haz clic para cambiar el modo de transliteración (apagado → directo → inverso)",
-    "auto": "Auto",
-    "clickCyclePunto": "Haz clic para cambiar el modo Punto",
-    "puntoAuto": "Punto {pair}: auto ↔",
-    "puntoAutoHint": "Both directions by dictionary",
     "undoHintMs": "Ctrl×2 ≤{ms}ms = undo",
     "undoOff": "Undo off"
   },
@@ -154,6 +146,14 @@ export const es: Messages = {
     "result": "Resultado",
     "placeholder": "Pega el texto aquí…",
     "modeTranslit": "Translit",
+    "modePunto": "Conversión Punto manual",
+    "puntoLead": "Corrige texto escrito con el teclado equivocado para un par de idiomas. Auto elige la dirección (cirílico → latino o al revés; pares de diccionario por defecto A→B).",
+    "puntoAuto": "Auto",
+    "puntoPair": "Par de idiomas",
+    "puntoCurrent": "Ahora: {label}",
+    "puntoLoadingDict": "cargando diccionario…",
+    "puntoDictWords": "diccionario del par: {n} palabras",
+    "puntoAutoResolved": "auto → {dir}",
     "modeAssSrt": "ASS → SRT",
     "modeVideoSubs": "Video → Subs",
     "assLead": "Convert ASS/SSA subtitles to SRT. Choose which dialogue columns to put into the cue text and in which order, separated by a custom delimiter.",
@@ -206,32 +206,6 @@ export const es: Messages = {
     "field_marginL": "MarginL",
     "field_marginR": "MarginR",
     "field_marginV": "MarginV"
-  },
-  "punto": {
-    "title": "Punto Switcher",
-    "lead": "Elige un par de idiomas — Punto solo usará ese par. Por defecto: ruso ↔ English. Deshacer: doble Ctrl.",
-    "pair": "1. Par de idiomas",
-    "direction": "Dirección",
-    "off": "Apagado",
-    "live": "2. Modo en vivo (tras cada palabra)",
-    "liveHintOff": "Elige una dirección — o déjalo apagado.",
-    "dictionary": "4. Diccionario propio",
-    "dictHint": "Sobrescribe las entradas del paquete para el par activo. Un par por línea: error → correcto",
-    "add": "Añadir fila",
-    "saveDict": "Guardar diccionario",
-    "preview": "3. Conversión manual",
-    "run": "Convertir",
-    "from": "desde",
-    "to": "a",
-    "current": "Ahora: {label}",
-    "loadingDict": "cargando diccionario…",
-    "dictWords": "diccionario del par: {n} palabras",
-    "auto": "Auto",
-    "source": "Texto de origen",
-    "result": "Resultado",
-    "clear": "Borrar",
-    "copy": "Copiar",
-    "undoHint": "Doble Ctrl deshace el último reemplazo."
   },
   "transform": {
     "title": "Transformaciones de texto",

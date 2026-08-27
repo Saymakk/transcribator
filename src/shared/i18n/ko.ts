@@ -1,11 +1,11 @@
-﻿import type { Messages } from "./en";
+import type { Messages } from "./en";
 
 export const ko: Messages = {
   "meta": {
     "nativeName": "한국어"
   },
   "app": {
-    "brandSubtitle": "레이아웃, 변환기, Punto 및 텍스트",
+    "brandSubtitle": "레이아웃, 변환기 및 텍스트",
     "loading": "로딩 중…",
     "saveConfirm": "현재 레이아웃의 변경 사항을 저장하시겠습니까?",
     "renamePrompt": "레이아웃 이름",
@@ -23,8 +23,7 @@ export const ko: Messages = {
     "layoutsHint": "규칙 및 팔레트",
     "convert": "변환기",
     "convertHint": "텍스트 및 파일",
-    "punto": "Punto",
-    "puntoHint": "레이아웃 수정기",
+
     "transform": "텍스트",
     "transformHint": "대소문자 및 줄바꿈",
     "settings": "Settings",
@@ -35,7 +34,6 @@ export const ko: Messages = {
     "forward": "정방향",
     "reverse": "역방향",
     "off": "꺼짐",
-    "punto": "Punto",
     "hookOk": "후크",
     "hookBad": "후크 없음",
     "undoHint": "Ctrl×2 = 실행 취소",
@@ -44,13 +42,7 @@ export const ko: Messages = {
     "statusForward": "정방향: RU → 레이아웃",
     "statusReverse": "역방향: 레이아웃 → RU",
     "statusOff": "음역 꺼짐",
-    "puntoOff": "Punto {pair}: 꺼짐",
-    "puntoOn": "Punto {pair}: {dir}",
     "clickCycleTranslit": "클릭하여 음역 모드 변경 (꺼짐 → 정방향 → 역방향)",
-    "auto": "Auto",
-    "clickCyclePunto": "클릭하여 Punto 모드 변경",
-    "puntoAuto": "Punto {pair}: auto ↔",
-    "puntoAutoHint": "Both directions by dictionary",
     "undoHintMs": "Ctrl×2 ≤{ms}ms = undo",
     "undoOff": "Undo off"
   },
@@ -154,6 +146,14 @@ export const ko: Messages = {
     "result": "결과",
     "placeholder": "여기에 텍스트를 붙여넣으세요…",
     "modeTranslit": "Translit",
+    "modePunto": "수동 Punto 변환",
+    "puntoLead": "언어 쌍에 대해 잘못된 레이아웃 입력을 고칩니다. 자동이 방향을 선택합니다(키릴→라틴 또는 반대; 사전 쌍은 기본 A→B).",
+    "puntoAuto": "자동",
+    "puntoPair": "언어 쌍",
+    "puntoCurrent": "현재: {label}",
+    "puntoLoadingDict": "사전 로딩 중…",
+    "puntoDictWords": "쌍 사전: {n}단어",
+    "puntoAutoResolved": "자동 → {dir}",
     "modeAssSrt": "ASS → SRT",
     "modeVideoSubs": "Video → Subs",
     "assLead": "Convert ASS/SSA subtitles to SRT. Choose which dialogue columns to put into the cue text and in which order, separated by a custom delimiter.",
@@ -206,32 +206,6 @@ export const ko: Messages = {
     "field_marginL": "MarginL",
     "field_marginR": "MarginR",
     "field_marginV": "MarginV"
-  },
-  "punto": {
-    "title": "Punto Switcher",
-    "lead": "언어 쌍을 선택하세요. Punto는 해당 쌍만 사용합니다. 기본: 러시아어 ↔ English. 취소: Ctrl 두 번.",
-    "pair": "1. 언어 쌍",
-    "direction": "방향",
-    "off": "꺼짐",
-    "live": "2. 실시간 모드 (단어마다)",
-    "liveHintOff": "방향을 선택하거나 꺼 두세요.",
-    "dictionary": "4. 사용자 사전",
-    "dictHint": "활성 언어 쌍에 대한 패키지 항목을 재정의합니다. 한 줄에 한 쌍씩: 오타 → 올바른 표기",
-    "add": "행 추가",
-    "saveDict": "사전 저장",
-    "preview": "3. 수동 변환",
-    "run": "변환",
-    "from": "출발",
-    "to": "도착",
-    "current": "현재: {label}",
-    "loadingDict": "사전 불러오는 중…",
-    "dictWords": "언어 쌍 사전: {n}단어",
-    "auto": "자동",
-    "source": "원문",
-    "result": "결과",
-    "clear": "지우기",
-    "copy": "복사",
-    "undoHint": "Ctrl 두 번으로 마지막 바꾸기를 취소합니다."
   },
   "transform": {
     "title": "텍스트 변환",

@@ -76,13 +76,6 @@
       {
         "from": "assets",
         "to": "assets"
-      },
-      {
-        "from": "electron/data",
-        "to": "data",
-        "filter": [
-          "*.json"
-        ]
       }
     ],
     "win": {

@@ -7,18 +7,9 @@ import type {
   CustomPalette,
   Layout,
   LocaleId,
-  PuntoDictEntry,
-  PuntoMode,
-  PuntoPairId,
   TranslitMode,
 } from "./shared/types";
 import { createDefaultLayout } from "./translit/defaultLayout";
-import {
-  DEFAULT_PUNTO_PAIR,
-  getPuntoPair,
-  isPuntoPairId,
-  migratePuntoMode,
-} from "./dicts/pairs";
 import { normalizeLocale } from "../src/shared/i18n";
 import { DEFAULT_HOTKEYS, migrateHotkeys, type HotkeysConfig } from "../src/shared/hotkeys";
 import { DEFAULT_ASS_SRT_PREFS } from "../src/shared/types";
@@ -30,9 +21,6 @@ type PersistedState = {
   layouts: Layout[];
   activeLayoutId: string;
   mode: TranslitMode;
-  puntoMode: PuntoMode;
-  puntoPairId: PuntoPairId;
-  puntoDictionary: PuntoDictEntry[];
   customPalettes: CustomPalette[];
   launchAtLogin: boolean;
   locale: LocaleId;
@@ -49,9 +37,6 @@ function defaultPersisted(): PersistedState {
     layouts: [layout],
     activeLayoutId: layout.id,
     mode: DEFAULT_MODE,
-    puntoMode: "off",
-    puntoPairId: DEFAULT_PUNTO_PAIR,
-    puntoDictionary: [],
     customPalettes: [],
     launchAtLogin: false,
     locale: normalizeLocale(typeof app !== "undefined" ? app.getLocale() : "en"),
@@ -90,17 +75,6 @@ export class AppStore {
         layouts,
         activeLayoutId,
         mode: raw.mode === "forward" || raw.mode === "reverse" || raw.mode === "off" ? raw.mode : "off",
-        puntoMode: migratePuntoMode(
-          (raw as { puntoMode?: unknown }).puntoMode,
-        ),
-        puntoPairId: isPuntoPairId((raw as { puntoPairId?: unknown }).puntoPairId)
-          ? ((raw as { puntoPairId: PuntoPairId }).puntoPairId)
-          : fallback.puntoPairId,
-        puntoDictionary: Array.isArray(raw.puntoDictionary)
-          ? raw.puntoDictionary
-              .filter((e) => e && typeof e.from === "string" && typeof e.to === "string")
-              .map((e) => ({ from: e.from, to: e.to }))
-          : fallback.puntoDictionary,
         customPalettes: Array.isArray((raw as { customPalettes?: unknown }).customPalettes)
           ? ((raw as { customPalettes: CustomPalette[] }).customPalettes)
               .filter(
@@ -175,39 +149,6 @@ export class AppStore {
     return this.toggleMode(target);
   }
 
-  setPuntoMode(mode: PuntoMode): AppState {
-    this.data.puntoMode = mode;
-    this.persist();
-    return this.getState();
-  }
-
-  togglePuntoMode(target: "a2b" | "b2a" | "auto"): AppState {
-    if (this.data.puntoMode === target) {
-      this.data.puntoMode = "off";
-    } else {
-      this.data.puntoMode = target;
-    }
-    this.persist();
-    return this.getState();
-  }
-
-  setPuntoPairId(id: PuntoPairId): AppState {
-    if (!isPuntoPairId(id)) return this.getState();
-    this.data.puntoPairId = id;
-    // Выбор пары включает двусторонний авто-режим
-    this.data.puntoMode = "auto";
-    this.persist();
-    return this.getState();
-  }
-
-  setPuntoDictionary(entries: PuntoDictEntry[]): AppState {
-    this.data.puntoDictionary = entries
-      .map((e) => ({ from: e.from.trim(), to: e.to }))
-      .filter((e) => e.from.length > 0);
-    this.persist();
-    return this.getState();
-  }
-
   setCustomPalettes(palettes: CustomPalette[]): AppState {
     this.data.customPalettes = palettes
       .map((p) => ({
@@ -237,10 +178,6 @@ export class AppStore {
 
   deleteCustomPalette(id: string): AppState {
     return this.setCustomPalettes(this.data.customPalettes.filter((p) => p.id !== id));
-  }
-
-  getPuntoPackIds(): string[] {
-    return getPuntoPair(this.data.puntoPairId).packIds;
   }
 
   setActiveLayout(id: string): AppState {

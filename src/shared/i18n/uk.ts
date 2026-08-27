@@ -1,11 +1,11 @@
-﻿import type { Messages } from "./en";
+import type { Messages } from "./en";
 
 export const uk: Messages = {
   "meta": {
     "nativeName": "Українська"
   },
   "app": {
-    "brandSubtitle": "Розкладки, конвертер, Пунто і текст",
+    "brandSubtitle": "Розкладки, конвертер і текст",
     "loading": "Завантаження…",
     "saveConfirm": "Зберегти зміни в поточній розкладці?",
     "renamePrompt": "Назва розкладки",
@@ -23,8 +23,7 @@ export const uk: Messages = {
     "layoutsHint": "Правила та палітра",
     "convert": "Конвертер",
     "convertHint": "Текст і файли",
-    "punto": "Пунто",
-    "puntoHint": "Виправлення розкладки",
+
     "transform": "Текст",
     "transformHint": "Регістр і обгортання",
     "settings": "Налаштування",
@@ -35,7 +34,6 @@ export const uk: Messages = {
     "forward": "Прямий",
     "reverse": "Зворотний",
     "off": "Вимк",
-    "punto": "Пунто",
     "hookOk": "Хук",
     "hookBad": "Немає хука",
     "undoHint": "Ctrl×2 = скасувати",
@@ -44,13 +42,7 @@ export const uk: Messages = {
     "statusForward": "Прямий: RU → розкладка",
     "statusReverse": "Зворотний: розкладка → RU",
     "statusOff": "Транслiт вимкнено",
-    "puntoOff": "Пунто {pair}: вимк",
-    "puntoOn": "Пунто {pair}: {dir}",
     "clickCycleTranslit": "Натисніть, щоб змінити режим транслiту (вимк → прямий → зворотний)",
-    "auto": "Авто",
-    "clickCyclePunto": "Натисніть, щоб змінити режим Пунто",
-    "puntoAuto": "Пунто {pair}: авто ↔",
-    "puntoAutoHint": "Обидва напрямки за словником",
     "undoHintMs": "Ctrl×2 ≤{ms}мс = скасувати",
     "undoOff": "Скасування вимк"
   },
@@ -154,6 +146,14 @@ export const uk: Messages = {
     "result": "Результат",
     "placeholder": "Вставте текст тут…",
     "modeTranslit": "Translit",
+    "modePunto": "Ручна конвертація пунто",
+    "puntoLead": "Виправлення тексту з неправильною розкладкою для мовної пари. Авто обирає напрямок (кирилиця → латиниця або навпаки для пар розкладки; словникові пари за замовчуванням A→B).",
+    "puntoAuto": "Авто",
+    "puntoPair": "Мовна пара",
+    "puntoCurrent": "Зараз: {label}",
+    "puntoLoadingDict": "завантаження словника…",
+    "puntoDictWords": "словник пари: {n} слів",
+    "puntoAutoResolved": "авто → {dir}",
     "modeAssSrt": "ASS → SRT",
     "modeVideoSubs": "Video → Subs",
     "assLead": "Convert ASS/SSA subtitles to SRT. Choose which dialogue columns to put into the cue text and in which order, separated by a custom delimiter.",
@@ -206,32 +206,6 @@ export const uk: Messages = {
     "field_marginL": "MarginL",
     "field_marginR": "MarginR",
     "field_marginV": "MarginV"
-  },
-  "punto": {
-    "title": "Punto Switcher",
-    "lead": "Оберіть мовну пару — Punto працюватиме лише з нею. Типово Російська ↔ English. Скасування: подвійний Ctrl.",
-    "pair": "1. Мовна пара",
-    "direction": "Напрямок",
-    "off": "Вимк",
-    "live": "2. Живий режим (після кожного слова)",
-    "liveHintOff": "Оберіть напрямок — або залиште вимк.",
-    "dictionary": "4. Власний словник",
-    "dictHint": "Перевизначає записи пакета для активної пари. Одна пара на рядок: помилка → правильно",
-    "add": "Додати рядок",
-    "saveDict": "Зберегти словник",
-    "preview": "3. Ручна конвертація",
-    "run": "Конвертувати",
-    "from": "з",
-    "to": "у",
-    "current": "Зараз: {label}",
-    "loadingDict": "завантаження словника…",
-    "dictWords": "словник пари: {n} слів",
-    "auto": "Авто",
-    "source": "Вихідний текст",
-    "result": "Результат",
-    "clear": "Очистити",
-    "copy": "Копіювати",
-    "undoHint": "Подвійний Ctrl скасовує останню заміну."
   },
   "transform": {
     "title": "Перетворення тексту",

@@ -110,7 +110,17 @@ export function transformCase(text: string, style: CaseStyle): string {
   }
 }
 
-export type WrapStyle = "none" | "quotes" | "double" | "backtick" | "paren" | "bracket" | "brace" | "angle" | "custom";
+export type WrapStyle =
+  | "none"
+  | "quotes"
+  | "double"
+  | "backtick"
+  | "paren"
+  | "bracket"
+  | "brace"
+  | "angle"
+  | "music"
+  | "custom";
 
 export function wrapLines(
   text: string,
@@ -148,6 +158,10 @@ export function wrapLines(
     case "angle":
       left = "<";
       right = ">";
+      break;
+    case "music":
+      left = "♪ ";
+      right = " ♪";
       break;
     case "custom":
       left = customLeft;

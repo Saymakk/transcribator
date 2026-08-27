@@ -1,11 +1,11 @@
-﻿import type { Messages } from "./en";
+import type { Messages } from "./en";
 
 export const ar: Messages = {
   "meta": {
     "nativeName": "العربية"
   },
   "app": {
-    "brandSubtitle": "التخطيطات، المحوّل، بونتو والنص",
+    "brandSubtitle": "تخطيطات ومحول ونص",
     "loading": "جارٍ التحميل…",
     "saveConfirm": "هل تريد حفظ التغييرات في التخطيط الحالي؟",
     "renamePrompt": "اسم التخطيط",
@@ -23,8 +23,7 @@ export const ar: Messages = {
     "layoutsHint": "القواعد واللوحة",
     "convert": "المحوّل",
     "convertHint": "النص والملفات",
-    "punto": "بونتو",
-    "puntoHint": "مصحّح التخطيط",
+
     "transform": "النص",
     "transformHint": "حالة الأحرف والتفاف الأسطر",
     "settings": "Settings",
@@ -35,7 +34,6 @@ export const ar: Messages = {
     "forward": "أمامي",
     "reverse": "عكسي",
     "off": "إيقاف",
-    "punto": "بونتو",
     "hookOk": "المِلقَط",
     "hookBad": "لا يوجد مِلقَط",
     "undoHint": "Ctrl×2 = تراجع",
@@ -44,13 +42,7 @@ export const ar: Messages = {
     "statusForward": "أمامي: RU ← التخطيط",
     "statusReverse": "عكسي: التخطيط ← RU",
     "statusOff": "الترجمة الصوتية متوقفة",
-    "puntoOff": "بونتو {pair}: متوقف",
-    "puntoOn": "بونتو {pair}: {dir}",
     "clickCycleTranslit": "انقر لتغيير وضع الترجمة الصوتية (إيقاف ← أمامي ← عكسي)",
-    "auto": "Auto",
-    "clickCyclePunto": "انقر لتغيير وضع بونتو",
-    "puntoAuto": "Punto {pair}: auto ↔",
-    "puntoAutoHint": "Both directions by dictionary",
     "undoHintMs": "Ctrl×2 ≤{ms}ms = undo",
     "undoOff": "Undo off"
   },
@@ -154,6 +146,14 @@ export const ar: Messages = {
     "result": "النتيجة",
     "placeholder": "ألصق النص هنا…",
     "modeTranslit": "Translit",
+    "modePunto": "تحويل بونتو يدوي",
+    "puntoLead": "إصلاح نص مكتوب بتخطيط خاطئ لزوج لغات. الوضع التلقائي يختار الاتجاه (سريلي → لاتيني أو العكس؛ أزواج القاموس افتراضياً A→B).",
+    "puntoAuto": "تلقائي",
+    "puntoPair": "زوج اللغات",
+    "puntoCurrent": "الآن: {label}",
+    "puntoLoadingDict": "جارٍ تحميل القاموس…",
+    "puntoDictWords": "قاموس الزوج: {n} كلمة",
+    "puntoAutoResolved": "تلقائي → {dir}",
     "modeAssSrt": "ASS → SRT",
     "modeVideoSubs": "Video → Subs",
     "assLead": "Convert ASS/SSA subtitles to SRT. Choose which dialogue columns to put into the cue text and in which order, separated by a custom delimiter.",
@@ -206,32 +206,6 @@ export const ar: Messages = {
     "field_marginL": "MarginL",
     "field_marginR": "MarginR",
     "field_marginV": "MarginV"
-  },
-  "punto": {
-    "title": "Punto Switcher",
-    "lead": "اختر زوج اللغات — يعمل Punto بهذا الزوج فقط. الافتراضي: الروسية ↔ English. التراجع: Ctrl مرتين.",
-    "pair": "1. زوج اللغات",
-    "direction": "الاتجاه",
-    "off": "إيقاف",
-    "live": "2. الوضع المباشر (بعد كل كلمة)",
-    "liveHintOff": "اختر الاتجاه — أو اتركه متوقفًا.",
-    "dictionary": "4. قاموس مخصص",
-    "dictHint": "يتجاوز إدخالات الحزمة للزوج النشط. زوج واحد في كل سطر: الخطأ ← الصحيح",
-    "add": "إضافة صف",
-    "saveDict": "حفظ القاموس",
-    "preview": "3. تحويل يدوي",
-    "run": "تحويل",
-    "from": "من",
-    "to": "إلى",
-    "current": "الآن: {label}",
-    "loadingDict": "جارٍ تحميل القاموس…",
-    "dictWords": "قاموس الزوج: {n} كلمة",
-    "auto": "تلقائي",
-    "source": "النص المصدر",
-    "result": "النتيجة",
-    "clear": "مسح",
-    "copy": "نسخ",
-    "undoHint": "ضغطتان على Ctrl تلغيان آخر استبدال."
   },
   "transform": {
     "title": "تحويلات النص",

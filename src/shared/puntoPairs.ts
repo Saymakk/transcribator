@@ -1,8 +1,5 @@
 import type { PuntoDictEntry } from "./types";
 
-/** Направление относительно выбранной пары. */
-export type PuntoMode = "off" | "a2b" | "b2a" | "auto";
-
 export type PuntoPairId = "ru-en" | "ru-fr" | "ru-es" | "ar-lat" | "zh-py";
 
 /** Как обрабатывать слово при конвертации. */
@@ -129,14 +126,6 @@ export function getPuntoPair(id: string | undefined): PuntoPair {
 
 export function isPuntoPairId(id: unknown): id is PuntoPairId {
   return typeof id === "string" && PUNTO_PAIRS.some((p) => p.id === id);
-}
-
-/** Устаревшие режимы → новые. */
-export function migratePuntoMode(raw: unknown): PuntoMode {
-  if (raw === "auto" || raw === "on" || raw === "both") return "auto";
-  if (raw === "a2b" || raw === "en2ru") return "a2b";
-  if (raw === "b2a" || raw === "ru2en") return "b2a";
-  return "off";
 }
 
 export function pairPackIds(pairId: PuntoPairId): string[] {

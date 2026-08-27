@@ -1,11 +1,11 @@
-﻿import type { Messages } from "./en";
+import type { Messages } from "./en";
 
 export const zh: Messages = {
   "meta": {
     "nativeName": "中文"
   },
   "app": {
-    "brandSubtitle": "布局、转换器、Punto 与文本",
+    "brandSubtitle": "布局、转换器与文本",
     "loading": "加载中…",
     "saveConfirm": "保存对当前布局的更改？",
     "renamePrompt": "布局名称",
@@ -23,8 +23,7 @@ export const zh: Messages = {
     "layoutsHint": "规则与符号面板",
     "convert": "转换器",
     "convertHint": "文本与文件",
-    "punto": "Punto",
-    "puntoHint": "布局修正",
+
     "transform": "文本",
     "transformHint": "大小写与换行",
     "settings": "Settings",
@@ -35,7 +34,6 @@ export const zh: Messages = {
     "forward": "正向",
     "reverse": "反向",
     "off": "关闭",
-    "punto": "Punto",
     "hookOk": "已挂钩",
     "hookBad": "未挂钩",
     "undoHint": "Ctrl×2 = 撤销",
@@ -44,13 +42,7 @@ export const zh: Messages = {
     "statusForward": "正向：RU → 布局",
     "statusReverse": "反向：布局 → RU",
     "statusOff": "音译已关闭",
-    "puntoOff": "Punto {pair}：关闭",
-    "puntoOn": "Punto {pair}：{dir}",
     "clickCycleTranslit": "点击切换音译模式（关闭 → 正向 → 反向）",
-    "auto": "Auto",
-    "clickCyclePunto": "点击切换 Punto 模式",
-    "puntoAuto": "Punto {pair}: auto ↔",
-    "puntoAutoHint": "Both directions by dictionary",
     "undoHintMs": "Ctrl×2 ≤{ms}ms = undo",
     "undoOff": "Undo off"
   },
@@ -154,6 +146,14 @@ export const zh: Messages = {
     "result": "结果",
     "placeholder": "在此粘贴文本…",
     "modeTranslit": "Translit",
+    "modePunto": "手动 Punto 转换",
+    "puntoLead": "按语言对修正错布局输入。自动选择方向（西里尔→拉丁或相反；词典对默认 A→B）。",
+    "puntoAuto": "自动",
+    "puntoPair": "语言对",
+    "puntoCurrent": "当前：{label}",
+    "puntoLoadingDict": "正在加载词典…",
+    "puntoDictWords": "对词典：{n} 词",
+    "puntoAutoResolved": "自动 → {dir}",
     "modeAssSrt": "ASS → SRT",
     "modeVideoSubs": "Video → Subs",
     "assLead": "Convert ASS/SSA subtitles to SRT. Choose which dialogue columns to put into the cue text and in which order, separated by a custom delimiter.",
@@ -206,32 +206,6 @@ export const zh: Messages = {
     "field_marginL": "MarginL",
     "field_marginR": "MarginR",
     "field_marginV": "MarginV"
-  },
-  "punto": {
-    "title": "Punto Switcher",
-    "lead": "选择语言对——Punto 仅使用该对。默认：俄语 ↔ English。撤销：双击 Ctrl。",
-    "pair": "1. 语言对",
-    "direction": "方向",
-    "off": "关闭",
-    "live": "2. 实时模式（每个词后）",
-    "liveHintOff": "请选择方向，或保持关闭。",
-    "dictionary": "4. 自定义词典",
-    "dictHint": "覆盖当前语言对的词库条目。每行一对：错误输入 → 正确",
-    "add": "添加一行",
-    "saveDict": "保存词典",
-    "preview": "3. 手动转换",
-    "run": "转换",
-    "from": "从",
-    "to": "到",
-    "current": "当前：{label}",
-    "loadingDict": "正在加载词典…",
-    "dictWords": "语言对词典：{n} 词",
-    "auto": "自动",
-    "source": "原文",
-    "result": "结果",
-    "clear": "清除",
-    "copy": "复制",
-    "undoHint": "双击 Ctrl 撤销上次替换。"
   },
   "transform": {
     "title": "文本转换",

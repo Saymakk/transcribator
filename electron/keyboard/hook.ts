@@ -3,10 +3,7 @@ import type { AppStore } from "../store";
 import { transliterateWord } from "../translit/engine";
 import { ChordDetector } from "./chords";
 import { charFromKeycode } from "./keymaps";
-import { puntoConvertWord, puntoConvertWordAuto } from "./punto";
 import { replaceLastChars } from "./replace";
-import { mergePacksAndCustom } from "../dicts/packs";
-import { getPuntoPair } from "../dicts/pairs";
 
 const WORD_BOUNDARIES = new Set([
   " ",
@@ -57,7 +54,6 @@ export class KeyboardEngine {
   private chord = new ChordDetector();
   /** Буфер для транслита (символы в выбранной раскладке). */
   private wordBuffer = "";
-  /** Физические нажатия для Punto auto (QWERTY + ЙЦУКЕН одновременно). */
   private strokes: Stroke[] = [];
   private pendingBoundary: string | null = null;
   private injecting = false;
@@ -131,7 +127,7 @@ export class KeyboardEngine {
   }
 
   private liveActive(state: ReturnType<AppStore["getState"]>): boolean {
-    return state.mode !== "off" || state.puntoMode !== "off";
+    return state.mode !== "off";
   }
 
   private isCtrlKey(keycode: number): boolean {
@@ -261,7 +257,6 @@ export class KeyboardEngine {
     const asQwerty = charFromKeycode(e.keycode, shift, "qwerty");
     const asJcuken = charFromKeycode(e.keycode, shift, "jcuken");
 
-    // Граница слова по любому из представлений
     if (
       (asQwerty !== null && WORD_BOUNDARIES.has(asQwerty)) ||
       (asJcuken !== null && WORD_BOUNDARIES.has(asJcuken))
@@ -284,15 +279,7 @@ export class KeyboardEngine {
     this.pendingBoundary = null;
     this.strokes.push({ keycode: e.keycode, shift });
 
-    // Символьный буфер для транслита / одностороннего punto
-    let keymap: "jcuken" | "qwerty" = "qwerty";
-    if (state.mode === "forward") keymap = "jcuken";
-    else if (state.mode === "reverse") keymap = "qwerty";
-    else if (state.puntoMode === "a2b" || state.puntoMode === "b2a") {
-      const pair = getPuntoPair(state.puntoPairId);
-      const dir = state.puntoMode === "a2b" ? pair.a2b.layoutDir : pair.b2a.layoutDir;
-      keymap = dir === "ru2en" ? "jcuken" : "qwerty";
-    }
+    const keymap: "jcuken" | "qwerty" = state.mode === "forward" ? "jcuken" : "qwerty";
     const ch = charFromKeycode(e.keycode, shift, keymap);
     if (ch !== null && !WORD_BOUNDARIES.has(ch)) {
       this.wordBuffer += ch;
@@ -307,45 +294,19 @@ export class KeyboardEngine {
     if (!word && strokes.length === 0) return;
 
     const state = this.store.getState();
-    let converted: string | null = null;
-    let originalForUndo = word;
-    let screenLen = [...word].length;
+    if (state.mode === "off") return;
 
-    if (state.mode !== "off") {
-      // Прямой: кириллица (ЙЦУКЕН) → символы активной раскладки (алфавит правил).
-      // Обратный: символы раскладки → кириллица.
-      const layout = this.store.getActiveLayout();
-      const direction = state.mode === "forward" ? "forward" : "reverse";
-      converted = transliterateWord(word, layout, direction);
-      if (converted === word) converted = null;
-      // Сколько символов реально ушло на экран = число нажатий (не длина после конвертации).
-      screenLen = strokes.length > 0 ? strokes.length : [...word].length;
-    } else if (state.puntoMode === "auto") {
-      const pair = getPuntoPair(state.puntoPairId);
-      const dict = mergePacksAndCustom(pair.packIds, state.puntoDictionary);
-      const qw = this.wordFromStrokes(strokes, "qwerty");
-      const ju = this.wordFromStrokes(strokes, "jcuken");
-      screenLen = strokes.length;
-      const auto = puntoConvertWordAuto(qw, ju, dict, pair.engine);
-      if (auto === null) return;
-      converted = auto;
-      originalForUndo = auto === qw ? ju : qw;
-    } else if (state.puntoMode === "a2b" || state.puntoMode === "b2a") {
-      const pair = getPuntoPair(state.puntoPairId);
-      const layoutDir =
-        state.puntoMode === "a2b" ? pair.a2b.layoutDir : pair.b2a.layoutDir;
-      const dict = mergePacksAndCustom(pair.packIds, state.puntoDictionary);
-      const result = puntoConvertWord(word, layoutDir, dict, pair.engine);
-      converted = result === word ? null : result;
-    } else {
-      return;
-    }
+    const layout = this.store.getActiveLayout();
+    const direction = state.mode === "forward" ? "forward" : "reverse";
+    let converted: string | null = transliterateWord(word, layout, direction);
+    if (converted === word) converted = null;
+    const originalForUndo = word;
+    const screenLen = strokes.length > 0 ? strokes.length : [...word].length;
 
     if (converted === null) {
       return;
     }
 
-    // Уже то, что на экране — не трогаем (иначе мигание выделения/вставки).
     if (converted === originalForUndo) {
       return;
     }
@@ -371,14 +332,5 @@ export class KeyboardEngine {
     } finally {
       this.injecting = false;
     }
-  }
-
-  private wordFromStrokes(strokes: Stroke[], keymap: "qwerty" | "jcuken"): string {
-    let out = "";
-    for (const s of strokes) {
-      const ch = charFromKeycode(s.keycode, s.shift, keymap);
-      if (ch !== null && !WORD_BOUNDARIES.has(ch)) out += ch;
-    }
-    return out;
   }
 }

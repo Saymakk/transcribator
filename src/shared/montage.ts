@@ -80,20 +80,40 @@ export function parseActorLine(
   text: string,
   knownRoles?: Set<string>,
 ): MontageActor | null {
-  const parts = text
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (parts.length < 2) return null;
-  const actor = parts[0];
-  const roles = parts.slice(1);
-  if (!looksLikeActorName(actor) || !roles.every(isRoleToken)) return null;
+  const raw = text.replace(/\s+/g, " ").trim().replace(/,+$/, "");
+  if (!raw) return null;
+
+  let actor = "";
+  let roleParts: string[] = [];
+
+  // Preferred montage form: "SURNAME: ROLE1, ROLE2, ROLE3"
+  const colon = raw.indexOf(":");
+  if (colon > 0) {
+    actor = raw.slice(0, colon).trim();
+    roleParts = raw
+      .slice(colon + 1)
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+  } else {
+    // Legacy form: "SURNAME, ROLE1, ROLE2"
+    const parts = raw
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length < 2) return null;
+    actor = parts[0];
+    roleParts = parts.slice(1);
+  }
+
+  if (roleParts.length === 0) return null;
+  if (!looksLikeActorName(actor) || !roleParts.every(isRoleToken)) return null;
   if (knownRoles && knownRoles.size > 0) {
     if (knownRoles.has(normalizeRole(actor))) return null;
-    const hits = roles.filter((r) => knownRoles.has(normalizeRole(r))).length;
+    const hits = roleParts.filter((r) => knownRoles.has(normalizeRole(r))).length;
     if (hits === 0) return null;
   }
-  return { name: actor, roles: roles.map(normalizeRole) };
+  return { name: actor, roles: roleParts.map(normalizeRole) };
 }
 
 function collectKnownRoles(lines: MontageLine[]): Set<string> {

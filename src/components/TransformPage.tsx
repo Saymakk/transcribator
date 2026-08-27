@@ -30,6 +30,7 @@ const WRAP_SYMBOL_OPTIONS: { id: Exclude<WrapStyle, "none" | "custom">; label: s
   { id: "bracket", label: "[…]" },
   { id: "brace", label: "{…}" },
   { id: "angle", label: "<…>" },
+  { id: "music", label: "♪ … ♪" },
 ];
 
 export function TransformPage() {

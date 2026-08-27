@@ -14,8 +14,7 @@ import fs from "node:fs";
 import { AppStore } from "./store";
 import { KeyboardEngine } from "./keyboard/hook";
 import { extractDocumentText, extractMontageLines, setExtractLocale } from "./documentExtract";
-import type { AppState, Layout, LocaleId, PuntoMode, PuntoPairId, TranslitMode } from "./shared/types";
-import { getPuntoPair } from "./dicts/pairs";
+import type { AppState, Layout, LocaleId, TranslitMode } from "./shared/types";
 import { DOCUMENT_EXTENSIONS } from "../src/shared/documentFormats";
 import { VIDEO_EXTENSIONS } from "../src/shared/videoFormats";
 import {
@@ -282,29 +281,6 @@ function updateTray(): void {
     },
     { type: "separator" },
     {
-      label: `Punto: ${getPuntoPair(state.puntoPairId).short}`,
-      enabled: false,
-    },
-    {
-      label: t(m, "mode.auto"),
-      type: "checkbox",
-      checked: state.puntoMode === "auto",
-      click: () => broadcastState(store.togglePuntoMode("auto")),
-    },
-    {
-      label: getPuntoPair(state.puntoPairId).a2b.label,
-      type: "checkbox",
-      checked: state.puntoMode === "a2b",
-      click: () => broadcastState(store.togglePuntoMode("a2b")),
-    },
-    {
-      label: getPuntoPair(state.puntoPairId).b2a.label,
-      type: "checkbox",
-      checked: state.puntoMode === "b2a",
-      click: () => broadcastState(store.togglePuntoMode("b2a")),
-    },
-    { type: "separator" },
-    {
       label: t(m, "tray.activeLayout"),
       submenu: layoutItems,
     },
@@ -353,24 +329,6 @@ function registerIpc(): void {
     return state;
   });
 
-  ipcMain.handle("state:setPuntoMode", (_e, mode: PuntoMode) => {
-    const state = store.setPuntoMode(mode);
-    updateTray();
-    return state;
-  });
-
-  ipcMain.handle("state:togglePuntoMode", (_e, target: "a2b" | "b2a" | "auto") => {
-    const state = store.togglePuntoMode(target);
-    updateTray();
-    return state;
-  });
-
-  ipcMain.handle("punto:setDictionary", (_e, entries: { from: string; to: string }[]) => {
-    const state = store.setPuntoDictionary(entries);
-    updateTray();
-    return state;
-  });
-
   ipcMain.handle("palette:setCustom", (_e, palettes: import("./shared/types").CustomPalette[]) => {
     const state = store.setCustomPalettes(palettes);
     updateTray();
@@ -385,12 +343,6 @@ function registerIpc(): void {
 
   ipcMain.handle("palette:delete", (_e, id: string) => {
     const state = store.deleteCustomPalette(id);
-    updateTray();
-    return state;
-  });
-
-  ipcMain.handle("punto:setPair", (_e, id: PuntoPairId) => {
-    const state = store.setPuntoPairId(id);
     updateTray();
     return state;
   });

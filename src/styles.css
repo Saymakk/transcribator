@@ -110,56 +110,6 @@ button {
   color: var(--muted);
 }
 
-.mode-strip {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border-radius: var(--radius);
-  border: 1px solid var(--line);
-  background: var(--bg1);
-  flex-shrink: 0;
-}
-
-.mode-strip-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.mode-strip-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  width: 100%;
-  font-weight: 600;
-}
-
-.mode-strip-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.mode-strip-meta .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--muted);
-}
-
-.mode-strip-meta .dot.ok {
-  background: var(--accent);
-}
-
-.mode-strip-meta .dot.bad {
-  background: var(--warn);
-}
-
 .chip {
   border: 1px solid var(--line);
   background: var(--bg2);
@@ -472,32 +422,6 @@ button {
 
 .badge-clickable:active {
   transform: translateY(1px);
-}
-
-.chip-status {
-  font-weight: 700;
-  min-width: 4.5rem;
-  justify-content: center;
-}
-
-.chip-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--muted);
-  flex-shrink: 0;
-}
-
-.chip-status.chip-forward .chip-status-dot {
-  background: var(--forward);
-}
-
-.chip-status.chip-reverse .chip-status-dot {
-  background: var(--reverse);
-}
-
-.chip-status.chip-off .chip-status-dot {
-  background: var(--muted);
 }
 
 .badge .dot {
@@ -1070,10 +994,6 @@ button {
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.mode-strip-sep {
-  opacity: 0.5;
 }
 
 .tool-block code {

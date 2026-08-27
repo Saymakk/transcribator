@@ -4,9 +4,6 @@ import type {
   AppState,
   HotkeysConfig,
   Layout,
-  PuntoDictEntry,
-  PuntoMode,
-  PuntoPairId,
   TranslitMode,
 } from "./shared/types";
 
@@ -36,10 +33,6 @@ export type TranscribatorApi = {
   setActiveLayout: (id: string) => Promise<AppState>;
   setMode: (mode: TranslitMode) => Promise<AppState>;
   toggleMode: (target: "forward" | "reverse") => Promise<AppState>;
-  setPuntoMode: (mode: PuntoMode) => Promise<AppState>;
-  togglePuntoMode: (target: "a2b" | "b2a" | "auto") => Promise<AppState>;
-  setPuntoPairId: (id: PuntoPairId) => Promise<AppState>;
-  setPuntoDictionary: (entries: PuntoDictEntry[]) => Promise<AppState>;
   setLaunchAtLogin: (enabled: boolean) => Promise<AppState>;
   setHotkeys: (hotkeys: HotkeysConfig) => Promise<AppState>;
   setAssSrtPrefs: (prefs: import("./shared/types").AssSrtPrefs) => Promise<AppState>;

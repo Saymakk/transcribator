@@ -2,9 +2,6 @@ import { contextBridge, ipcRenderer } from "electron";
 import type {
   AppState,
   Layout,
-  PuntoDictEntry,
-  PuntoMode,
-  PuntoPairId,
   TranslitMode,
 } from "./shared/types";
 
@@ -37,14 +34,6 @@ const api = {
     ipcRenderer.invoke("state:setMode", mode),
   toggleMode: (target: "forward" | "reverse"): Promise<AppState> =>
     ipcRenderer.invoke("state:toggleMode", target),
-  setPuntoMode: (mode: PuntoMode): Promise<AppState> =>
-    ipcRenderer.invoke("state:setPuntoMode", mode),
-  togglePuntoMode: (target: "a2b" | "b2a" | "auto"): Promise<AppState> =>
-    ipcRenderer.invoke("state:togglePuntoMode", target),
-  setPuntoPairId: (id: PuntoPairId): Promise<AppState> =>
-    ipcRenderer.invoke("punto:setPair", id),
-  setPuntoDictionary: (entries: PuntoDictEntry[]): Promise<AppState> =>
-    ipcRenderer.invoke("punto:setDictionary", entries),
   setLaunchAtLogin: (enabled: boolean): Promise<AppState> =>
     ipcRenderer.invoke("state:setLaunchAtLogin", enabled),
   setHotkeys: (hotkeys: import("./shared/types").HotkeysConfig): Promise<AppState> =>

@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import type { AssSrtPrefs, Layout } from "../shared/types";
+import type { AssSrtPrefs, Layout, PuntoDictEntry, PuntoPairId } from "../shared/types";
 import { DEFAULT_ASS_SRT_PREFS } from "../shared/types";
 import {
   binaryToText,
@@ -17,6 +17,9 @@ import {
   parseMontage,
   type MontageLine,
 } from "../shared/montage";
+import { puntoConvert } from "../shared/punto";
+import { getPuntoPair, PUNTO_PAIRS } from "../shared/puntoPairs";
+import { loadDictPacks } from "../shared/dicts/load";
 import { videoSupportHint } from "../shared/videoFormats";
 import { useLocale } from "../i18n/LocaleContext";
 import { VideoSubsPanel } from "./VideoSubsPanel";
@@ -27,8 +30,9 @@ type Props = {
   onAssSrtPrefsChange: (prefs: AssSrtPrefs) => void;
 };
 
-type ConvertMode = "translit" | "ass-srt" | "binary" | "morse" | "video-subs";
+type ConvertMode = "translit" | "ass-srt" | "binary" | "morse" | "video-subs" | "punto";
 type CodeDirection = "encode" | "decode" | "auto";
+type PuntoDir = "a2b" | "b2a" | "auto";
 type LoadedItem = {
   name: string;
   text: string;
@@ -50,12 +54,16 @@ function isMontageItem(item: LoadedItem): boolean {
 }
 
 export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const prefs = assSrtPrefs ?? DEFAULT_ASS_SRT_PREFS;
   const [mode, setMode] = useState<ConvertMode>("translit");
   const [input, setInput] = useState("");
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
   const [codeDirection, setCodeDirection] = useState<CodeDirection>("auto");
+  const [puntoPairId, setPuntoPairId] = useState<PuntoPairId>("ru-en");
+  const [puntoDir, setPuntoDir] = useState<PuntoDir>("auto");
+  const [puntoPack, setPuntoPack] = useState<PuntoDictEntry[]>([]);
+  const [puntoPackLoading, setPuntoPackLoading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [montageName, setMontageName] = useState<string | null>(null);
   const [montageLines, setMontageLines] = useState<MontageLine[] | null>(null);
@@ -114,6 +122,37 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
     }
     onAssSrtPrefsChange(next);
   }, [assFields, assSeparator, assKeepEmpty]);
+
+  const puntoPair = useMemo(() => getPuntoPair(puntoPairId), [puntoPairId]);
+
+  useEffect(() => {
+    if (mode !== "punto") return;
+    let cancelled = false;
+    setPuntoPackLoading(true);
+    void loadDictPacks(puntoPair.packIds).then((entries) => {
+      if (!cancelled) {
+        setPuntoPack(entries);
+        setPuntoPackLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, puntoPair.packIds]);
+
+  const puntoResolvedSide: "a2b" | "b2a" = useMemo(() => {
+    if (puntoDir !== "auto") return puntoDir;
+    if (puntoPair.engine === "dict") return "a2b";
+    const hasCyr = /[а-яёА-ЯЁ]/.test(input);
+    return hasCyr ? "b2a" : "a2b";
+  }, [puntoDir, puntoPair.engine, input]);
+
+  const puntoOut = useMemo(() => {
+    if (mode !== "punto") return "";
+    const layoutDir =
+      puntoResolvedSide === "a2b" ? puntoPair.a2b.layoutDir : puntoPair.b2a.layoutDir;
+    return puntoConvert(input, layoutDir, puntoPack, puntoPair.engine);
+  }, [mode, input, puntoResolvedSide, puntoPair, puntoPack]);
 
   const translitOut = useMemo(
     () => transliterateLettersOnly(input, layout, direction),
@@ -183,7 +222,9 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
         ? binaryResult.output
         : mode === "morse"
           ? morseResult.output
-          : translitOut;
+          : mode === "punto"
+            ? puntoOut
+            : translitOut;
   const codeError =
     mode === "binary"
       ? binaryResult.error
@@ -344,7 +385,9 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
               ? t("convert.assLead")
               : mode === "video-subs"
                 ? t("convert.videoLead", { formats: videoSupportHint() })
-                : t("convert.lead", { formats: formatSupportHint(), layout: layout.name })}
+                : mode === "punto"
+                  ? t("convert.puntoLead")
+                  : t("convert.lead", { formats: formatSupportHint(), layout: layout.name })}
           </p>
         </div>
       </div>
@@ -357,6 +400,13 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
             onClick={() => setMode("translit")}
           >
             {t("convert.modeTranslit")}
+          </button>
+          <button
+            type="button"
+            className={`btn ${mode === "punto" ? "active-reverse" : ""}`}
+            onClick={() => setMode("punto")}
+          >
+            {t("convert.modePunto")}
           </button>
           <button
             type="button"
@@ -402,6 +452,33 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
               onClick={() => setDirection("reverse")}
             >
               {t("convert.reverse")}
+            </button>
+          </div>
+        )}
+        {mode === "punto" && (
+          <div className="row-actions">
+            <button
+              type="button"
+              className={`btn ${puntoDir === "auto" ? "active-off" : ""}`}
+              onClick={() => setPuntoDir("auto")}
+            >
+              {t("convert.puntoAuto")}
+            </button>
+            <button
+              type="button"
+              className={`btn ${puntoDir === "a2b" ? "active-forward" : ""}`}
+              onClick={() => setPuntoDir("a2b")}
+              title={puntoPair.a2b.hint}
+            >
+              {puntoPair.a2b.label}
+            </button>
+            <button
+              type="button"
+              className={`btn ${puntoDir === "b2a" ? "active-reverse" : ""}`}
+              onClick={() => setPuntoDir("b2a")}
+              title={puntoPair.b2a.hint}
+            >
+              {puntoPair.b2a.label}
             </button>
           </div>
         )}
@@ -457,6 +534,34 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
         <VideoSubsPanel />
       ) : (
         <>
+      {mode === "punto" && (
+        <div className="tool-block">
+          <p className="pane-title">{t("convert.puntoPair")}</p>
+          <div className="chip-grid">
+            {PUNTO_PAIRS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`chip ${puntoPairId === p.id ? "chip-forward" : ""}`}
+                onClick={() => setPuntoPairId(p.id)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="hint" style={{ marginTop: 8 }}>
+            {t("convert.puntoCurrent", { label: puntoPair.label })}
+            {puntoPackLoading
+              ? ` · ${t("convert.puntoLoadingDict")}`
+              : ` · ${t("convert.puntoDictWords", { n: puntoPack.length.toLocaleString(locale) })}`}
+            {puntoDir === "auto"
+              ? ` · ${t("convert.puntoAutoResolved", {
+                  dir: puntoResolvedSide === "a2b" ? puntoPair.a2b.label : puntoPair.b2a.label,
+                })}`
+              : ""}
+          </p>
+        </div>
+      )}
       {mode === "ass-srt" && (
         <div className="tool-block ass-options">
           <div className="ass-montage-row">

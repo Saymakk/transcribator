@@ -13,7 +13,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const LISTS = path.join(__dirname, "wordlists");
 const OUT_SRC = path.join(ROOT, "src", "shared", "dicts");
-const OUT_EL = path.join(ROOT, "electron", "data");
 
 const EN =
   "qwertyuiop[]asdfghjkl;'zxcvbnm,./QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?`~@#$%^&";
@@ -269,17 +268,14 @@ const index = packs.map((p) => ({
 }));
 
 fs.mkdirSync(OUT_SRC, { recursive: true });
-fs.mkdirSync(OUT_EL, { recursive: true });
 
 for (const pack of packs) {
   const file = `${pack.id}.json`;
   fs.writeFileSync(path.join(OUT_SRC, file), JSON.stringify(pack), "utf8");
-  fs.writeFileSync(path.join(OUT_EL, file), JSON.stringify(pack), "utf8");
   console.log(`${pack.id}: ${pack.entries.length} entries`);
 }
 
 fs.writeFileSync(path.join(OUT_SRC, "index.json"), JSON.stringify(index, null, 2), "utf8");
-fs.writeFileSync(path.join(OUT_EL, "index.json"), JSON.stringify(index, null, 2), "utf8");
 
 const total = packs.reduce((s, p) => s + p.entries.length, 0);
 console.log(`total entries across packs: ${total}`);
