@@ -150,17 +150,27 @@ function assetPath(...parts: string[]): string {
 }
 
 function showMainWindowMaximized(): void {
-  if (!mainWindow) return;
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    if (app.isReady()) createWindow();
+    return;
+  }
   if (mainWindow.isMinimized()) {
     mainWindow.restore();
   }
-  if (!mainWindow.isVisible()) {
-    mainWindow.maximize();
-    mainWindow.show();
-  } else if (!mainWindow.isMaximized()) {
+  if (!mainWindow.isMaximized()) {
     mainWindow.maximize();
   }
-  mainWindow.focus();
+  mainWindow.show();
+  if (process.platform === "win32") {
+    // Windows blocks focus steal unless we briefly force topmost.
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.moveTop();
+    mainWindow.focus();
+    mainWindow.setAlwaysOnTop(false);
+    app.focus({ steal: true });
+  } else {
+    mainWindow.focus();
+  }
 }
 
 async function handleWindowClose(): Promise<void> {
@@ -658,10 +668,16 @@ ipcMain.handle("file:openDocument", async () => {
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
-  app.quit();
+  // Second copy: exit immediately so only the tray instance stays.
+  app.exit(0);
 } else {
   app.on("second-instance", () => {
-    showMainWindowMaximized();
+    // Another launch attempt — open the existing tray instance.
+    if (app.isReady()) {
+      showMainWindowMaximized();
+    } else {
+      app.whenReady().then(() => showMainWindowMaximized());
+    }
   });
 
   app.whenReady().then(() => {
