@@ -8,6 +8,7 @@ import {
   shell,
   nativeTheme,
   dialog,
+  globalShortcut,
 } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -24,7 +25,6 @@ import {
 } from "../src/shared/exportFormats";
 import { getMessages, t, normalizeLocale } from "../src/shared/i18n";
 import { encodeExportContent } from "./exportDocument";
-import { formatChordLabel } from "../src/shared/hotkeys";
 import { applyUpdatePrefs, setupAutoUpdater } from "./updater";
 import {
   extractSubtitlesFromVideos,
@@ -40,6 +40,9 @@ let isQuitting = false;
 let closePromptOpen = false;
 
 const isDev = !app.isPackaged;
+
+/** Global hotkey: toggle translit on/off. */
+const TRANSLIT_TOGGLE_ACCEL = "CommandOrControl+Alt+[";
 
 function msg() {
   return getMessages(store.getState().locale);
@@ -94,13 +97,49 @@ function syncAppFocusSuppress(): void {
 }
 
 function installAppMenu(): void {
-  const template: Electron.MenuItemConstructorOptions[] = [];
+  // Hide default Edit/View menus. On macOS keep a minimal app menu for Quit etc.
   if (process.platform === "darwin") {
-    template.push({ role: "appMenu" });
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([{ role: "appMenu" }]),
+    );
+  } else {
+    Menu.setApplicationMenu(null);
   }
-  template.push({ role: "editMenu" });
-  template.push({ role: "viewMenu" });
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function loginItemOptions(openAtLogin: boolean): Parameters<typeof app.setLoginItemSettings>[0] {
+  const options: Parameters<typeof app.setLoginItemSettings>[0] = {
+    openAtLogin,
+    // Windows: also toggle Startup Apps / Task Manager entry
+    enabled: openAtLogin,
+    name: "Transcribator",
+  };
+  // Packaged NSIS: default path (process.execPath) is correct.
+  // In dev, Electron.exe needs the app entry as args or login starts a bare Electron.
+  if (!app.isPackaged) {
+    options.path = process.execPath;
+    const appPath = path.resolve(process.argv[1] ?? ".");
+    options.args = [appPath];
+  }
+  return options;
+}
+
+function loginItemQuery(): ReturnType<typeof app.getLoginItemSettings> {
+  if (process.platform === "darwin") {
+    return app.getLoginItemSettings();
+  }
+  if (!app.isPackaged) {
+    return app.getLoginItemSettings({
+      path: process.execPath,
+      args: [path.resolve(process.argv[1] ?? ".")],
+    });
+  }
+  // Electron typings lag behind docs; `name` is supported on Windows.
+  return app.getLoginItemSettings({ name: "Transcribator" } as Electron.LoginItemSettingsOptions);
+}
+
+function applyLaunchAtLogin(enabled: boolean): void {
+  app.setLoginItemSettings(loginItemOptions(enabled));
 }
 
 function assetPath(...parts: string[]): string {
@@ -250,34 +289,19 @@ function updateTray(): void {
     },
     { type: "separator" },
     {
+      label: t(m, "tray.translitToggle"),
+      type: "checkbox",
+      checked: state.mode !== "off",
+      accelerator: TRANSLIT_TOGGLE_ACCEL,
+      click: () => broadcastState(store.toggleTranslitEnabled()),
+    },
+    { type: "separator" },
+    {
       label: t(m, "tray.openSettings"),
       click: () => {
         showMainWindowMaximized();
         mainWindow?.webContents.send("app:navigate", "settings");
       },
-    },
-    { type: "separator" },
-    {
-      label: t(m, "tray.forward", {
-        chord: formatChordLabel(state.hotkeys.chordFirst, state.hotkeys.chordSecond),
-      }),
-      type: "radio",
-      checked: state.mode === "forward",
-      click: () => broadcastState(store.toggleMode("forward")),
-    },
-    {
-      label: t(m, "tray.reverse", {
-        chord: formatChordLabel(state.hotkeys.chordSecond, state.hotkeys.chordFirst),
-      }),
-      type: "radio",
-      checked: state.mode === "reverse",
-      click: () => broadcastState(store.toggleMode("reverse")),
-    },
-    {
-      label: t(m, "tray.translitOff"),
-      type: "radio",
-      checked: state.mode === "off",
-      click: () => broadcastState(store.setMode("off")),
     },
     { type: "separator" },
     {
@@ -295,6 +319,16 @@ function updateTray(): void {
     },
   ]);
   tray.setContextMenu(menu);
+}
+
+function registerGlobalShortcuts(): void {
+  globalShortcut.unregisterAll();
+  const ok = globalShortcut.register(TRANSLIT_TOGGLE_ACCEL, () => {
+    broadcastState(store.toggleTranslitEnabled());
+  });
+  if (!ok) {
+    console.error(`Failed to register global shortcut ${TRANSLIT_TOGGLE_ACCEL}`);
+  }
 }
 
 function createTray(): void {
@@ -546,8 +580,8 @@ ipcMain.handle("file:openDocument", async () => {
   });
 
   ipcMain.handle("state:setLaunchAtLogin", (_e, enabled: boolean) => {
-    app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath });
-    const state = store.setLaunchAtLogin(enabled);
+    applyLaunchAtLogin(Boolean(enabled));
+    const state = store.setLaunchAtLogin(Boolean(enabled));
     return state;
   });
 
@@ -640,14 +674,17 @@ if (!gotSingleInstanceLock) {
     registerIpc();
     createWindow();
     createTray();
+    registerGlobalShortcuts();
     syncAppFocusSuppress();
 
-    const login = app.getLoginItemSettings();
-    if (store.getState().launchAtLogin !== login.openAtLogin) {
-      app.setLoginItemSettings({
-        openAtLogin: store.getState().launchAtLogin,
-        path: process.execPath,
-      });
+    const wantLogin = store.getState().launchAtLogin;
+    const login = loginItemQuery();
+    const willLaunch =
+      process.platform === "win32"
+        ? Boolean((login as { executableWillLaunchAtLogin?: boolean }).executableWillLaunchAtLogin)
+        : login.openAtLogin;
+    if (wantLogin !== login.openAtLogin || (wantLogin && !willLaunch)) {
+      applyLaunchAtLogin(wantLogin);
     }
 
     const ok = keyboardEngine.start();
@@ -667,7 +704,12 @@ if (!gotSingleInstanceLock) {
 
   app.on("before-quit", () => {
     isQuitting = true;
+    globalShortcut.unregisterAll();
     keyboardEngine?.stop();
+  });
+
+  app.on("will-quit", () => {
+    globalShortcut.unregisterAll();
   });
 
   app.on("activate", () => {

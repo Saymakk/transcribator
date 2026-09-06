@@ -29,7 +29,7 @@ export const en = {
     transform: "Text",
     transformHint: "Case & wrapping",
     settings: "Settings",
-    settingsHint: "Language & hotkeys",
+    settingsHint: "Language & updates",
   },
   mode: {
     translit: "Translit",
@@ -55,29 +55,14 @@ export const en = {
     hookActive: "active",
     hookInactive: "inactive",
     access: "Access",
-    forwardChord: "Forward",
-    reverseChord: "Reverse",
     off: "Off",
-    hint: "Click the status above to switch mode. Hotkeys are in Settings.",
+    hint: "Click the status above to switch mode.",
     launchAtLogin: "Launch at system login",
   },
   settings: {
     title: "Settings",
-    lead: "Language, startup, accessibility and global hotkeys.",
+    lead: "Language, startup, accessibility and updates.",
     general: "General",
-    hotkeys: "Hotkeys",
-    hotkeysHint:
-      "Hold Ctrl and press both chord keys. Order sets direction: first→second = forward, second→first = reverse. Click a button and press a key to change it.",
-    chordFirst: "Chord key 1 (forward first)",
-    chordSecond: "Chord key 2 (reverse first)",
-    pressKey: "Press a key…",
-    forwardChord: "Forward",
-    reverseChord: "Reverse",
-    undoEnabled: "Double Ctrl undoes last replacement",
-    undoMs: "Double-Ctrl window (ms)",
-    saveHotkeys: "Save hotkeys",
-    resetHotkeys: "Reset to defaults",
-    hotkeysSame: "Chord keys must be different.",
   },
   donate: {
     support: "Donate",
@@ -120,8 +105,6 @@ export const en = {
     feedHint:
       "Upload latest.yml, the Setup .exe and the .blockmap into a public Yandex Disk folder (or any HTTPS directory) and paste the folder link here. Google Drive share pages do not work.",
     feedSave: "Save source",
-    deltaHint:
-      "Updates download the installer (with a blockmap, only changed parts). Do not publish an unpacked project folder.",
   },
   layouts: {
     create: "Create",
@@ -327,6 +310,7 @@ export const en = {
     hookOn: "Keyboard hook: active",
     hookOff: "Keyboard hook: off",
     openSettings: "Open settings",
+    translitToggle: "Translit on/off (Ctrl+Alt+[)",
     forward: "Forward ({chord})",
     reverse: "Reverse ({chord})",
     translitOff: "Translit off",

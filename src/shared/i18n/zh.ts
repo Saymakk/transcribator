@@ -16,6 +16,7 @@ export const zh: Messages = {
     "save": "保存",
     "hookWarn": "键盘钩子未激活。macOS 需要辅助功能权限；Linux 建议使用 X11。",
     "openSettings": "打开设置",
+
     "language": "语言"
   },
   "nav": {
@@ -27,7 +28,7 @@ export const zh: Messages = {
     "transform": "文本",
     "transformHint": "大小写与换行",
     "settings": "Settings",
-    "settingsHint": "Language & hotkeys"
+    "settingsHint": "语言与更新"
   },
   "mode": {
     "translit": "音译",
@@ -52,10 +53,8 @@ export const zh: Messages = {
     "hookActive": "已激活",
     "hookInactive": "未激活",
     "access": "权限",
-    "forwardChord": "正向",
-    "reverseChord": "反向",
     "off": "关闭",
-    "hint": "点击上方状态可切换模式。也可使用 Ctrl+A+D / Ctrl+D+A。",
+    "hint": "点击上方状态以切换模式。",
     "launchAtLogin": "系统登录时启动"
   },
   "layouts": {
@@ -257,6 +256,7 @@ export const zh: Messages = {
     "hookOn": "键盘钩子：已激活",
     "hookOff": "键盘钩子：已关闭",
     "openSettings": "打开设置",
+    "translitToggle": "开关转写 (Ctrl+Alt+[)",
     "forward": "Forward ({chord})",
     "reverse": "Reverse ({chord})",
     "translitOff": "音译已关闭",
@@ -278,20 +278,8 @@ export const zh: Messages = {
   },
   "settings": {
     "title": "Settings",
-    "lead": "Language, startup, accessibility and global hotkeys.",
+    "lead": "语言、开机启动、辅助功能与更新。",
     "general": "General",
-    "hotkeys": "Hotkeys",
-    "hotkeysHint": "Hold Ctrl and press both chord keys. Order sets direction: first→second = forward, second→first = reverse. Click a button and press a key to change it.",
-    "chordFirst": "Chord key 1 (forward first)",
-    "chordSecond": "Chord key 2 (reverse first)",
-    "pressKey": "Press a key…",
-    "forwardChord": "Forward",
-    "reverseChord": "Reverse",
-    "undoEnabled": "Double Ctrl undoes last replacement",
-    "undoMs": "Double-Ctrl window (ms)",
-    "saveHotkeys": "Save hotkeys",
-    "resetHotkeys": "Reset to defaults",
-    "hotkeysSame": "Chord keys must be different."
   },
   "donate": {
     "support": "捐赠",
@@ -331,6 +319,6 @@ export const zh: Messages = {
     "feedUrl": "Public folder URL",
     "feedHint": "Upload latest.yml, the Setup .exe and the .blockmap into a public Yandex Disk folder (or any HTTPS directory) and paste the folder link here. Google Drive share pages do not work.",
     "feedSave": "Save source",
-    "deltaHint": "Updates download the installer (with a blockmap, only changed parts). Do not publish an unpacked project folder."
+
   }
 };

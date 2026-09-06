@@ -1,6 +1,6 @@
 {
   "name": "transcribator",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Глобальный транслитератор русского текста с пользовательскими раскладками",
   "main": "dist-electron/main.js",
   "author": {
@@ -83,7 +83,7 @@
         "nsis"
       ],
       "icon": "assets/icon.ico",
-      "requestedExecutionLevel": "requireAdministrator"
+      "requestedExecutionLevel": "asInvoker"
     },
     "mac": {
       "target": [

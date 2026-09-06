@@ -50,10 +50,15 @@ export class AppStore {
   private filePath: string;
   private data: PersistedState;
   private hookActive = false;
+  /** Last direction used when translit was on (for power toggle). */
+  private lastNonOffMode: "forward" | "reverse" = "forward";
 
   constructor() {
     this.filePath = path.join(app.getPath("userData"), "settings.json");
     this.data = this.load();
+    if (this.data.mode === "forward" || this.data.mode === "reverse") {
+      this.lastNonOffMode = this.data.mode;
+    }
   }
 
   private load(): PersistedState {
@@ -129,6 +134,9 @@ export class AppStore {
   }
 
   setMode(mode: TranslitMode): AppState {
+    if (mode === "forward" || mode === "reverse") {
+      this.lastNonOffMode = mode;
+    }
     this.data.mode = mode;
     this.persist();
     return this.getState();
@@ -137,12 +145,30 @@ export class AppStore {
   /** Клик по кнопке режима: повтор — выкл. */
   toggleMode(target: "forward" | "reverse"): AppState {
     if (this.data.mode === target) {
+      this.lastNonOffMode = target;
       this.data.mode = "off";
     } else {
+      this.lastNonOffMode = target;
       this.data.mode = target;
     }
     this.persist();
     return this.getState();
+  }
+
+  /** Вкл/выкл транслита (восстанавливает последнее направление). */
+  toggleTranslitEnabled(): AppState {
+    if (this.data.mode === "off") {
+      this.data.mode = this.lastNonOffMode;
+    } else {
+      this.lastNonOffMode = this.data.mode;
+      this.data.mode = "off";
+    }
+    this.persist();
+    return this.getState();
+  }
+
+  isTranslitEnabled(): boolean {
+    return this.data.mode !== "off";
   }
 
   toggleChord(target: "forward" | "reverse"): AppState {

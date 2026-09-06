@@ -136,8 +136,6 @@ export function UpdatePanel({ compact = false, prefs, onPrefsChange }: Props) {
         </>
       )}
 
-      <p className="hint">{t("update.deltaHint")}</p>
-
       <div className="row-actions">
         <button
           type="button"

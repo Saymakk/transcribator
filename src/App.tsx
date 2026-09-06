@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import type { AppState, HotkeysConfig, Layout } from "./shared/types";
+import type { AppState, Layout } from "./shared/types";
 import { DEFAULT_ASS_SRT_PREFS } from "./shared/types";
 import { findReverseConflicts, transliterateWord } from "./shared/engine";
 import {
@@ -381,9 +381,6 @@ export default function App() {
               onLocaleChange={changeLocale}
               onLaunchAtLogin={(enabled) =>
                 void window.transcribator.setLaunchAtLogin(enabled).then(applyState)
-              }
-              onHotkeysChange={(hk: HotkeysConfig) =>
-                void window.transcribator.setHotkeys(hk).then(applyState)
               }
               onUpdatePrefsChange={(prefs) =>
                 void window.transcribator.setUpdatePrefs(prefs).then(applyState)

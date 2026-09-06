@@ -16,6 +16,7 @@ export const pl: Messages = {
     "save": "Zapisz",
     "hookWarn": "Hak klawiatury jest nieaktywny. W macOS wymagany jest dostęp Ułatwienia dostępu; w Linuksie preferowany jest X11.",
     "openSettings": "Otwórz ustawienia",
+
     "language": "Język"
   },
   "nav": {
@@ -27,7 +28,7 @@ export const pl: Messages = {
     "transform": "Tekst",
     "transformHint": "Wielkość liter i zawijanie",
     "settings": "Settings",
-    "settingsHint": "Language & hotkeys"
+    "settingsHint": "Język i aktualizacje"
   },
   "mode": {
     "translit": "Transliteracja",
@@ -52,10 +53,8 @@ export const pl: Messages = {
     "hookActive": "aktywny",
     "hookInactive": "nieaktywny",
     "access": "Dostęp",
-    "forwardChord": "Do przodu",
-    "reverseChord": "Odwrotny",
     "off": "Wyłączony",
-    "hint": "Kliknij stan powyżej, aby zmienić tryb. Także: Ctrl+A+D / Ctrl+D+A.",
+    "hint": "Kliknij status powyżej, aby zmienić tryb.",
     "launchAtLogin": "Uruchamiaj przy logowaniu do systemu"
   },
   "layouts": {
@@ -257,6 +256,7 @@ export const pl: Messages = {
     "hookOn": "Hak klawiatury: aktywny",
     "hookOff": "Hak klawiatury: wyłączony",
     "openSettings": "Otwórz ustawienia",
+    "translitToggle": "Translit wł./wył. (Ctrl+Alt+[)",
     "forward": "Forward ({chord})",
     "reverse": "Reverse ({chord})",
     "translitOff": "Transliteracja wyłączona",
@@ -278,20 +278,8 @@ export const pl: Messages = {
   },
   "settings": {
     "title": "Settings",
-    "lead": "Language, startup, accessibility and global hotkeys.",
+    "lead": "Język, autostart, dostępność i aktualizacje.",
     "general": "General",
-    "hotkeys": "Hotkeys",
-    "hotkeysHint": "Hold Ctrl and press both chord keys. Order sets direction: first→second = forward, second→first = reverse. Click a button and press a key to change it.",
-    "chordFirst": "Chord key 1 (forward first)",
-    "chordSecond": "Chord key 2 (reverse first)",
-    "pressKey": "Press a key…",
-    "forwardChord": "Forward",
-    "reverseChord": "Reverse",
-    "undoEnabled": "Double Ctrl undoes last replacement",
-    "undoMs": "Double-Ctrl window (ms)",
-    "saveHotkeys": "Save hotkeys",
-    "resetHotkeys": "Reset to defaults",
-    "hotkeysSame": "Chord keys must be different."
   },
   "donate": {
     "support": "Donate",
@@ -331,6 +319,6 @@ export const pl: Messages = {
     "feedUrl": "Public folder URL",
     "feedHint": "Upload latest.yml, the Setup .exe and the .blockmap into a public Yandex Disk folder (or any HTTPS directory) and paste the folder link here. Google Drive share pages do not work.",
     "feedSave": "Save source",
-    "deltaHint": "Updates download the installer (with a blockmap, only changed parts). Do not publish an unpacked project folder."
+
   }
 };

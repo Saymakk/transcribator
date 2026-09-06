@@ -16,6 +16,7 @@ export const ko: Messages = {
     "save": "저장",
     "hookWarn": "키보드 후크가 비활성 상태입니다. macOS에서는 손쉬운 사용 권한이 필요하며, Linux에서는 X11을 사용하는 것이 좋습니다.",
     "openSettings": "설정 열기",
+
     "language": "언어"
   },
   "nav": {
@@ -27,7 +28,7 @@ export const ko: Messages = {
     "transform": "텍스트",
     "transformHint": "대소문자 및 줄바꿈",
     "settings": "Settings",
-    "settingsHint": "Language & hotkeys"
+    "settingsHint": "언어 및 업데이트"
   },
   "mode": {
     "translit": "음역",
@@ -52,10 +53,8 @@ export const ko: Messages = {
     "hookActive": "활성",
     "hookInactive": "비활성",
     "access": "접근 권한",
-    "forwardChord": "정방향",
-    "reverseChord": "역방향",
     "off": "꺼짐",
-    "hint": "위의 상태를 클릭하여 모드를 전환하세요. 또는 Ctrl+A+D / Ctrl+D+A를 사용하세요.",
+    "hint": "위 상태를 클릭해 모드를 바꾸세요.",
     "launchAtLogin": "시스템 로그인 시 실행"
   },
   "layouts": {
@@ -257,6 +256,7 @@ export const ko: Messages = {
     "hookOn": "키보드 후크: 활성",
     "hookOff": "키보드 후크: 꺼짐",
     "openSettings": "설정 열기",
+    "translitToggle": "음역 켜기/끄기 (Ctrl+Alt+[)",
     "forward": "Forward ({chord})",
     "reverse": "Reverse ({chord})",
     "translitOff": "음역 꺼짐",
@@ -278,20 +278,8 @@ export const ko: Messages = {
   },
   "settings": {
     "title": "Settings",
-    "lead": "Language, startup, accessibility and global hotkeys.",
+    "lead": "언어, 시작 프로그램, 접근성 및 업데이트.",
     "general": "General",
-    "hotkeys": "Hotkeys",
-    "hotkeysHint": "Hold Ctrl and press both chord keys. Order sets direction: first→second = forward, second→first = reverse. Click a button and press a key to change it.",
-    "chordFirst": "Chord key 1 (forward first)",
-    "chordSecond": "Chord key 2 (reverse first)",
-    "pressKey": "Press a key…",
-    "forwardChord": "Forward",
-    "reverseChord": "Reverse",
-    "undoEnabled": "Double Ctrl undoes last replacement",
-    "undoMs": "Double-Ctrl window (ms)",
-    "saveHotkeys": "Save hotkeys",
-    "resetHotkeys": "Reset to defaults",
-    "hotkeysSame": "Chord keys must be different."
   },
   "donate": {
     "support": "후원",
@@ -331,6 +319,6 @@ export const ko: Messages = {
     "feedUrl": "Public folder URL",
     "feedHint": "Upload latest.yml, the Setup .exe and the .blockmap into a public Yandex Disk folder (or any HTTPS directory) and paste the folder link here. Google Drive share pages do not work.",
     "feedSave": "Save source",
-    "deltaHint": "Updates download the installer (with a blockmap, only changed parts). Do not publish an unpacked project folder."
+
   }
 };

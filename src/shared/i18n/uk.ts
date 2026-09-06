@@ -16,6 +16,7 @@ export const uk: Messages = {
     "save": "Зберегти",
     "hookWarn": "Хук клавіатури неактивний. На macOS потрібен доступ Accessibility; на Linux краще X11.",
     "openSettings": "Відкрити налаштування",
+
     "language": "Мова"
   },
   "nav": {
@@ -27,7 +28,7 @@ export const uk: Messages = {
     "transform": "Текст",
     "transformHint": "Регістр і обгортання",
     "settings": "Налаштування",
-    "settingsHint": "Мова і гарячі клавіші"
+    "settingsHint": "Мова та оновлення"
   },
   "mode": {
     "translit": "Транслiт",
@@ -52,10 +53,8 @@ export const uk: Messages = {
     "hookActive": "активний",
     "hookInactive": "неактивний",
     "access": "Доступ",
-    "forwardChord": "Прямий",
-    "reverseChord": "Зворотний",
     "off": "Вимк",
-    "hint": "Натисніть на статус вище, щоб змінити режим. Також: Ctrl+A+D / Ctrl+D+A.",
+    "hint": "Натисніть на статус вище, щоб змінити режим.",
     "launchAtLogin": "Запускати під час входу в систему"
   },
   "layouts": {
@@ -257,6 +256,7 @@ export const uk: Messages = {
     "hookOn": "Хук клавіатури: активний",
     "hookOff": "Хук клавіатури: вимкнено",
     "openSettings": "Відкрити налаштування",
+    "translitToggle": "Трансліт увімк/вимк (Ctrl+Alt+[)",
     "forward": "Прямий ({chord})",
     "reverse": "Зворотний ({chord})",
     "translitOff": "Транслiт вимкнено",
@@ -278,20 +278,8 @@ export const uk: Messages = {
   },
   "settings": {
     "title": "Налаштування",
-    "lead": "Мова, автозапуск, доступ і глобальні гарячі клавіші.",
+    "lead": "Мова, автозапуск, доступність і оновлення.",
     "general": "Загальні",
-    "hotkeys": "Гарячі клавіші",
-    "hotkeysHint": "Затисніть Ctrl і натисніть обидві клавіші акорду. Порядок задає напрямок. Натисніть кнопку і клавішу, щоб змінити.",
-    "chordFirst": "Клавіша 1 (прямий — першою)",
-    "chordSecond": "Клавіша 2 (зворотний — першою)",
-    "pressKey": "Натисніть клавішу…",
-    "forwardChord": "Прямий",
-    "reverseChord": "Зворотний",
-    "undoEnabled": "Подвійний Ctrl скасовує останню заміну",
-    "undoMs": "Вікно подвійного Ctrl (мс)",
-    "saveHotkeys": "Зберегти клавіші",
-    "resetHotkeys": "Скинути",
-    "hotkeysSame": "Клавіші акорду мають відрізнятися."
   },
   "donate": {
     "support": "Донат",
@@ -331,6 +319,6 @@ export const uk: Messages = {
     "feedUrl": "Public folder URL",
     "feedHint": "Upload latest.yml, the Setup .exe and the .blockmap into a public Yandex Disk folder (or any HTTPS directory) and paste the folder link here. Google Drive share pages do not work.",
     "feedSave": "Save source",
-    "deltaHint": "Updates download the installer (with a blockmap, only changed parts). Do not publish an unpacked project folder."
+
   }
 };

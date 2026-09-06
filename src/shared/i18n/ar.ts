@@ -16,6 +16,7 @@ export const ar: Messages = {
     "save": "حفظ",
     "hookWarn": "مِلقَط لوحة المفاتيح غير مفعّل. على macOS يلزم إذن إمكانية الوصول؛ على Linux يُفضَّل استخدام X11.",
     "openSettings": "فتح الإعدادات",
+
     "language": "اللغة"
   },
   "nav": {
@@ -27,7 +28,7 @@ export const ar: Messages = {
     "transform": "النص",
     "transformHint": "حالة الأحرف والتفاف الأسطر",
     "settings": "Settings",
-    "settingsHint": "Language & hotkeys"
+    "settingsHint": "اللغة والتحديثات"
   },
   "mode": {
     "translit": "الترجمة الصوتية",
@@ -52,10 +53,8 @@ export const ar: Messages = {
     "hookActive": "مفعّل",
     "hookInactive": "غير مفعّل",
     "access": "الإذن",
-    "forwardChord": "أمامي",
-    "reverseChord": "عكسي",
     "off": "إيقاف",
-    "hint": "انقر على الحالة أعلاه لتبديل الوضع. أيضًا: Ctrl+A+D / Ctrl+D+A.",
+    "hint": "انقر على الحالة أعلاه لتغيير الوضع.",
     "launchAtLogin": "التشغيل عند تسجيل الدخول إلى النظام"
   },
   "layouts": {
@@ -257,6 +256,7 @@ export const ar: Messages = {
     "hookOn": "مِلقَط لوحة المفاتيح: مفعّل",
     "hookOff": "مِلقَط لوحة المفاتيح: متوقف",
     "openSettings": "فتح الإعدادات",
+    "translitToggle": "تشغيل/إيقاف النقل (Ctrl+Alt+[)",
     "forward": "Forward ({chord})",
     "reverse": "Reverse ({chord})",
     "translitOff": "الترجمة الصوتية متوقفة",
@@ -278,20 +278,8 @@ export const ar: Messages = {
   },
   "settings": {
     "title": "Settings",
-    "lead": "Language, startup, accessibility and global hotkeys.",
+    "lead": "اللغة والإقلاع وإمكانية الوصول والتحديثات.",
     "general": "General",
-    "hotkeys": "Hotkeys",
-    "hotkeysHint": "Hold Ctrl and press both chord keys. Order sets direction: first→second = forward, second→first = reverse. Click a button and press a key to change it.",
-    "chordFirst": "Chord key 1 (forward first)",
-    "chordSecond": "Chord key 2 (reverse first)",
-    "pressKey": "Press a key…",
-    "forwardChord": "Forward",
-    "reverseChord": "Reverse",
-    "undoEnabled": "Double Ctrl undoes last replacement",
-    "undoMs": "Double-Ctrl window (ms)",
-    "saveHotkeys": "Save hotkeys",
-    "resetHotkeys": "Reset to defaults",
-    "hotkeysSame": "Chord keys must be different."
   },
   "donate": {
     "support": "تبرع",
@@ -331,6 +319,6 @@ export const ar: Messages = {
     "feedUrl": "Public folder URL",
     "feedHint": "Upload latest.yml, the Setup .exe and the .blockmap into a public Yandex Disk folder (or any HTTPS directory) and paste the folder link here. Google Drive share pages do not work.",
     "feedSave": "Save source",
-    "deltaHint": "Updates download the installer (with a blockmap, only changed parts). Do not publish an unpacked project folder."
+
   }
 };
