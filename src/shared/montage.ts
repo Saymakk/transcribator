@@ -76,6 +76,20 @@ function looksLikeActorName(s: string): boolean {
   return /\p{L}/u.test(t);
 }
 
+/**
+ * A cast row sometimes merges several actors:
+ * "ДУЖЕНКОВА: СТАРУШКА, МИА, КОРШ: ПАЙПЕР, ДЖАРЕД,"
+ * Split before each later "SURNAME:" that follows a comma.
+ */
+export function splitGluedActorLine(text: string): string[] {
+  const raw = text.replace(/\s+/g, " ").trim();
+  if (!raw.includes(":")) return [raw];
+  return raw
+    .split(/,\s+(?=[\p{Lu}][\p{L}\p{N}'’\-]*(?:\s+[\p{Lu}][\p{L}\p{N}'’\-]*){0,3}\s*:)/u)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 export function parseActorLine(
   text: string,
   knownRoles?: Set<string>,
@@ -125,8 +139,23 @@ function collectKnownRoles(lines: MontageLine[]): Set<string> {
   return roles;
 }
 
+function isClockLine(text: string): boolean {
+  return /^\d{1,2}:\d{2}:\d{2}$/.test(text.trim());
+}
+
+/** First line of a montage, when it is not a role, clock, or cast row. */
+function leadingTitle(lines: MontageLine[]): string {
+  const first = lines[0]?.text.trim() ?? "";
+  if (!first) return "";
+  if (ROLE_TAG.test(first) || isClockLine(first)) return "";
+  if (splitGluedActorLine(first).some((part) => parseActorLine(part) !== null)) return "";
+  return first;
+}
+
 export function parseMontage(lines: MontageLine[]): MontageCast {
   const knownRoles = collectKnownRoles(lines);
+  const title = leadingTitle(lines);
+  const titleKey = title ? normalizeRole(title) : "";
   const actors: MontageActor[] = [];
   const seenActor = new Set<string>();
   const coloredRoles = new Set<string>();
@@ -134,6 +163,7 @@ export function parseMontage(lines: MontageLine[]): MontageCast {
 
   let currentClock = "";
   let blockColored = false;
+  let passedPreamble = false;
 
   const flushClock = () => {
     if (currentClock && blockColored) coloredTimes.add(currentClock);
@@ -142,8 +172,19 @@ export function parseMontage(lines: MontageLine[]): MontageCast {
 
   for (const line of lines) {
     const clockMatch = line.text.match(CLOCK);
-    const isClockLine = clockMatch && /^(\d{1,2}:\d{2}:\d{2})$/.test(line.text.trim());
-    if (isClockLine && clockMatch) {
+    const clockOnly = clockMatch && isClockLine(line.text);
+    const actorParts = splitGluedActorLine(line.text);
+    const parsedActors = actorParts
+      .map((part) => parseActorLine(part, knownRoles.size ? knownRoles : undefined))
+      .filter((actor): actor is MontageActor => actor !== null);
+
+    if (!passedPreamble) {
+      const structural = Boolean(line.text.match(ROLE_TAG)) || Boolean(clockOnly) || parsedActors.length > 0;
+      if (!structural) continue;
+      passedPreamble = true;
+    }
+
+    if (clockOnly && clockMatch) {
       flushClock();
       currentClock = normalizeClock(clockMatch[1]);
       continue;
@@ -159,12 +200,19 @@ export function parseMontage(lines: MontageLine[]): MontageCast {
       continue;
     }
 
-    const actor = parseActorLine(line.text, knownRoles.size ? knownRoles : undefined);
-    if (actor) {
-      const key = actor.name.toUpperCase();
-      if (!seenActor.has(key)) {
-        seenActor.add(key);
-        actors.push(actor);
+    if (parsedActors.length > 0) {
+      for (const actor of parsedActors) {
+        if (title && actor.name.localeCompare(title, undefined, { sensitivity: "accent" }) === 0) {
+          continue;
+        }
+        const key = actor.name.toUpperCase();
+        if (!seenActor.has(key)) {
+          seenActor.add(key);
+          actors.push({
+            ...actor,
+            roles: titleKey ? actor.roles.filter((role) => role !== titleKey) : actor.roles,
+          });
+        }
       }
       continue;
     }
@@ -176,6 +224,7 @@ export function parseMontage(lines: MontageLine[]): MontageCast {
   const roleToActors = new Map<string, string[]>();
   for (const actor of actors) {
     for (const role of actor.roles) {
+      if (titleKey && role === titleKey) continue;
       const list = roleToActors.get(role) ?? [];
       if (!list.includes(actor.name)) list.push(actor.name);
       roleToActors.set(role, list);

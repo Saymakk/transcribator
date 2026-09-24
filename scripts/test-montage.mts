@@ -77,6 +77,35 @@ assert.equal(
 );
 assert.equal(prefixCueWithActors("Привет", "БАЗЗ", "0:07:13.00", cast), "ОРЛОВ. Привет");
 
+const glued = montageLinesFromPlainText(`
+Ice Cream Man 2026
+Персонаж
+Число строк
+[СТАРУШКА]
+2
+[ПАЙПЕР]
+2
+[ДЖАРЕД]
+1
+[МИА]
+1
+ДУЖЕНКОВА: СТАРУШКА, МИА, ХЭЗЕР, КОРШ: ПАЙПЕР, ДЖАРЕД,
+`);
+const gluedCast = parseMontage(glued);
+assert.deepEqual(
+  gluedCast.actors.map((a) => a.name),
+  ["ДУЖЕНКОВА", "КОРШ"],
+);
+assert.deepEqual(gluedCast.roleToActors.get("СТАРУШКА"), ["ДУЖЕНКОВА"]);
+assert.deepEqual(gluedCast.roleToActors.get("МИА"), ["ДУЖЕНКОВА"]);
+assert.deepEqual(gluedCast.roleToActors.get("ПАЙПЕР"), ["КОРШ"]);
+assert.deepEqual(gluedCast.roleToActors.get("ДЖАРЕД"), ["КОРШ"]);
+assert.equal(gluedCast.roleToActors.has("ICECREAMMAN2026"), false);
+assert.equal(
+  gluedCast.actors.some((a) => /ice cream man/i.test(a.name)),
+  false,
+);
+
 console.log("montage parser OK");
 
 const fs = await import("node:fs");
