@@ -71,10 +71,11 @@ function isRoleToken(s: string): boolean {
 function looksLikeActorName(s: string): boolean {
   const t = s.trim();
   if (!t || t.length > 80) return false;
+  if (/\s/.test(t)) return false;
   if (ROLE_TAG.test(t)) return false;
   if (/\d{1,2}:\d{2}/.test(t)) return false;
   if (/[.!?]/.test(t)) return false;
-  return /\p{L}/u.test(t);
+  return /^\p{L}[\p{L}\p{N}'’\-]*$/u.test(t);
 }
 
 /**

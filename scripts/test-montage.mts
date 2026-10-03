@@ -38,6 +38,11 @@ assert.deepEqual(
 );
 assert.equal(parseActorLine("ЭМИЛИ УЛИЦА РАНЧ, 1200", known), null);
 assert.equal(parseActorLine("Друзья навек, ковбой!", known), null);
+assert.equal(parseActorLine("РОБ УИЛСОН, ДЕТЕКТИВ", new Set(["ДЕТЕКТИВ"])), null);
+assert.deepEqual(
+  parseActorLine("ГЛУШКОВСКИЙ: МУЖ1, ДЕТЕКТИВ,", new Set(["МУЖ1", "ДЕТЕКТИВ"])),
+  { name: "ГЛУШКОВСКИЙ", roles: ["МУЖ1", "ДЕТЕКТИВ"] },
+);
 
 const lines = montageLinesFromPlainText(`
 Toy Story 5
