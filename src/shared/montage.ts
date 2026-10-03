@@ -59,12 +59,13 @@ export function montageLinesFromPlainText(text: string): MontageLine[] {
 }
 
 function isRoleToken(s: string): boolean {
-  const t = s.trim();
+  const t = s.trim().replace(/\s+/g, " ");
   if (!t || t.length > 48) return false;
-  if (/\s/.test(t)) return false;
   if (/[.,!?;:]/.test(t)) return false;
   if (/^\d+$/.test(t)) return false;
-  return /^[\p{L}\p{N}]+$/u.test(t);
+  const words = t.split(" ");
+  if (words.length > 6) return false;
+  return words.every((word) => /^[\p{L}\p{N}]+$/u.test(word));
 }
 
 function looksLikeActorName(s: string): boolean {

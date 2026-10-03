@@ -29,6 +29,13 @@ assert.deepEqual(parseActorLine("ОСТРОУХОВА: ЭРИКА,", new Set(["�
   name: "ОСТРОУХОВА",
   roles: ["ЭРИКА"],
 });
+assert.deepEqual(
+  parseActorLine("НАБИЕВ: КОКС, ВОДИТЕЛЬ М 1, ДОКТОР ЛИФТ, МУЖ 1,", new Set(["КОКС", "ВОДИТЕЛЬМ1"])),
+  {
+    name: "НАБИЕВ",
+    roles: ["КОКС", "ВОДИТЕЛЬМ1", "ДОКТОРЛИФТ", "МУЖ1"],
+  },
+);
 assert.equal(parseActorLine("ЭМИЛИ УЛИЦА РАНЧ, 1200", known), null);
 assert.equal(parseActorLine("Друзья навек, ковбой!", known), null);
 
