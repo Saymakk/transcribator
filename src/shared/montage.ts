@@ -68,14 +68,20 @@ function isRoleToken(s: string): boolean {
   return words.every((word) => /^[\p{L}\p{N}]+$/u.test(word));
 }
 
-function looksLikeActorName(s: string): boolean {
-  const t = s.trim();
-  if (!t || t.length > 80) return false;
-  if (/\s/.test(t)) return false;
-  if (ROLE_TAG.test(t)) return false;
-  if (/\d{1,2}:\d{2}/.test(t)) return false;
-  if (/[.!?]/.test(t)) return false;
-  return /^\p{L}[\p{L}\p{N}'’\-]*$/u.test(t);
+/** "Фёдоров (Новиков 03.10.2026)" → "Фёдоров" */
+function stripActorNote(name: string): string {
+  return name.replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** One surname, or "Фамилия Имя". Notes in parentheses are removed. */
+function actorNameWords(name: string): string[] {
+  const t = stripActorNote(name);
+  if (!t || t.length > 80) return [];
+  if (ROLE_TAG.test(t) || /\d/.test(t) || /[.!?]/.test(t) || /\d{1,2}:\d{2}/.test(t)) return [];
+  const words = t.split(" ");
+  if (words.length > 3) return [];
+  if (!words.every((word) => /^\p{L}[\p{L}'’\-]*$/u.test(word))) return [];
+  return words;
 }
 
 /**
@@ -123,13 +129,18 @@ export function parseActorLine(
   }
 
   if (roleParts.length === 0) return null;
-  if (!looksLikeActorName(actor) || !roleParts.every(isRoleToken)) return null;
+  const nameWords = actorNameWords(actor);
+  if (nameWords.length === 0 || !roleParts.every(isRoleToken)) return null;
+  const name = nameWords.join(" ");
+  // "Иванова Юля, РОЛЬ, РОЛЬ" is a cast row. "РОБ УИЛСОН, ДЕТЕКТИВ" is a lower third.
+  if (nameWords.length > 1 && roleParts.length < 2) return null;
   if (knownRoles && knownRoles.size > 0) {
-    if (knownRoles.has(normalizeRole(actor))) return null;
+    if (knownRoles.has(normalizeRole(name))) return null;
     const hits = roleParts.filter((r) => knownRoles.has(normalizeRole(r))).length;
-    if (hits === 0) return null;
+    const need = nameWords.length > 1 ? 2 : 1;
+    if (hits < need) return null;
   }
-  return { name: actor, roles: roleParts.map(normalizeRole) };
+  return { name, roles: roleParts.map(normalizeRole) };
 }
 
 function collectKnownRoles(lines: MontageLine[]): Set<string> {
@@ -145,11 +156,17 @@ function isClockLine(text: string): boolean {
   return /^\d{1,2}:\d{2}:\d{2}$/.test(text.trim());
 }
 
+/** Cast header ends at the first cue clock: `00:00` or `0:01:13`. */
+function isTimecodeLine(text: string): boolean {
+  return /^\d{1,2}:\d{2}(?::\d{2})?$/.test(text.trim());
+}
+
 /** First line of a montage, when it is not a role, clock, or cast row. */
 function leadingTitle(lines: MontageLine[]): string {
   const first = lines[0]?.text.trim() ?? "";
   if (!first) return "";
   if (ROLE_TAG.test(first) || isClockLine(first)) return "";
+  if (isTimecodeLine(first)) return "";
   if (splitGluedActorLine(first).some((part) => parseActorLine(part) !== null)) return "";
   return first;
 }
@@ -166,6 +183,7 @@ export function parseMontage(lines: MontageLine[]): MontageCast {
   let currentClock = "";
   let blockColored = false;
   let passedPreamble = false;
+  let castClosed = false;
 
   const flushClock = () => {
     if (currentClock && blockColored) coloredTimes.add(currentClock);
@@ -175,13 +193,18 @@ export function parseMontage(lines: MontageLine[]): MontageCast {
   for (const line of lines) {
     const clockMatch = line.text.match(CLOCK);
     const clockOnly = clockMatch && isClockLine(line.text);
-    const actorParts = splitGluedActorLine(line.text);
+    if (!castClosed && isTimecodeLine(line.text)) castClosed = true;
+    const actorParts = castClosed ? [] : splitGluedActorLine(line.text);
     const parsedActors = actorParts
       .map((part) => parseActorLine(part, knownRoles.size ? knownRoles : undefined))
       .filter((actor): actor is MontageActor => actor !== null);
 
     if (!passedPreamble) {
-      const structural = Boolean(line.text.match(ROLE_TAG)) || Boolean(clockOnly) || parsedActors.length > 0;
+      const structural =
+        Boolean(line.text.match(ROLE_TAG)) ||
+        Boolean(clockOnly) ||
+        isTimecodeLine(line.text) ||
+        parsedActors.length > 0;
       if (!structural) continue;
       passedPreamble = true;
     }

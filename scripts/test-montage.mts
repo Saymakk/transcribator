@@ -118,6 +118,33 @@ assert.equal(
   false,
 );
 
+const outlander = montageLinesFromPlainText(`
+Outlander.Blood.of.My.Blood
+Мишутин, ДУГАЛ, ГЕНРИ, НДП,
+Фёдоров (Новиков 03.10.2026), ДЖЭЙКОБ, ЛОВАТ, МАККИНИ,
+Иванова Юля, ЭЛЛЕН, ДЖОКАСТА, ДАВИНА,
+00:00
+ЭЛЛЕН
+Ранее.
+ЧУЖЕСТРАНКА: КРОВЬ ОТ КРОВИ МОЕЙ
+Тогда, прошу,
+РОБ УИЛСОН, ДЕТЕКТИВ
+`);
+const outlanderCast = parseMontage(outlander);
+assert.deepEqual(
+  outlanderCast.actors.map((a) => a.name),
+  ["Мишутин", "Фёдоров", "Иванова Юля"],
+);
+assert.deepEqual(outlanderCast.roleToActors.get("ДУГАЛ"), ["Мишутин"]);
+assert.deepEqual(outlanderCast.roleToActors.get("ДЖЭЙКОБ"), ["Фёдоров"]);
+assert.deepEqual(outlanderCast.roleToActors.get("ЛОВАТ"), ["Фёдоров"]);
+assert.deepEqual(outlanderCast.roleToActors.get("МАККИНИ"), ["Фёдоров"]);
+assert.deepEqual(outlanderCast.roleToActors.get("ЭЛЛЕН"), ["Иванова Юля"]);
+assert.deepEqual(outlanderCast.roleToActors.get("ДЖОКАСТА"), ["Иванова Юля"]);
+assert.equal(outlanderCast.roleToActors.has("ПРОШУ"), false);
+assert.equal(outlanderCast.roleToActors.has("КРОВЬОТКРОВИМОЕЙ"), false);
+assert.equal(outlanderCast.roleToActors.has("ДЕТЕКТИВ"), false);
+
 console.log("montage parser OK");
 
 const fs = await import("node:fs");
