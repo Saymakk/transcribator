@@ -3,6 +3,7 @@ import {
   formatActorPrefix,
   montageLinesFromPlainText,
   parseActorLine,
+  parseDocxMontageXml,
   parseMontage,
   prefixCueWithActors,
 } from "../src/shared/montage";
@@ -144,6 +145,69 @@ assert.deepEqual(outlanderCast.roleToActors.get("ДЖОКАСТА"), ["Иван�
 assert.equal(outlanderCast.roleToActors.has("ПРОШУ"), false);
 assert.equal(outlanderCast.roleToActors.has("КРОВЬОТКРОВИМОЕЙ"), false);
 assert.equal(outlanderCast.roleToActors.has("ДЕТЕКТИВ"), false);
+
+const eden = montageLinesFromPlainText(`
+[ЧАРЛЬЗ]
+2
+[АДАМ]
+2
+[КЭТИ]
+1
+[ЭЛИС]
+1
+[НДП]
+1
+РУБЦОВ: ЧАРЛЬЗ, ОЧКИ, ПРЕПОД,АННЕНКОВ: АДАМ, ДЖЕЙМС,
+ВАЛЬЦ: ТОМАС, НДП, БРАК2,ИВАНОВА: КЭТИ, КЭТ,СМЕТАНИНА: ЭЛИС, ДЕВ22,
+00:07
+[ЧАРЛЬЗ]
+Текст.
+`);
+const edenCast = parseMontage(eden);
+assert.deepEqual(
+  edenCast.actors.map((a) => a.name),
+  ["РУБЦОВ", "АННЕНКОВ", "ВАЛЬЦ", "ИВАНОВА", "СМЕТАНИНА"],
+);
+assert.deepEqual(edenCast.roleToActors.get("ЧАРЛЬЗ"), ["РУБЦОВ"]);
+assert.deepEqual(edenCast.roleToActors.get("ОЧКИ"), ["РУБЦОВ"]);
+assert.deepEqual(edenCast.roleToActors.get("АДАМ"), ["АННЕНКОВ"]);
+assert.deepEqual(edenCast.roleToActors.get("КЭТИ"), ["ИВАНОВА"]);
+assert.deepEqual(edenCast.roleToActors.get("ЭЛИС"), ["СМЕТАНИНА"]);
+assert.deepEqual(edenCast.roleToActors.get("НДП"), ["ВАЛЬЦ"]);
+
+const broken = montageLinesFromPlainText(`
+[КЭЛ]
+1
+[КЭТИ]
+1
+[ЭЛИС]
+1
+[ТОМАС]
+1
+ВАЛЬЦ: ТОМАС, НДП,
+КЭЛ, МУЖ3, ПРОДАВЕЦ,
+ИВАНОВА: КЭТИ, ЖЕН1,
+-СМЕТАНИНА: ЭЛИС, ДЕВ22,
+00:06
+`);
+const brokenCast = parseMontage(broken);
+assert.deepEqual(
+  brokenCast.actors.map((a) => a.name),
+  ["ВАЛЬЦ", "ИВАНОВА", "СМЕТАНИНА"],
+);
+assert.deepEqual(brokenCast.roleToActors.get("КЭЛ"), ["ВАЛЬЦ"]);
+assert.deepEqual(brokenCast.roleToActors.get("ПРОДАВЕЦ"), ["ВАЛЬЦ"]);
+assert.deepEqual(brokenCast.roleToActors.get("КЭТИ"), ["ИВАНОВА"]);
+assert.deepEqual(brokenCast.roleToActors.get("ЭЛИС"), ["СМЕТАНИНА"]);
+
+import { parseDocxMontageXml } from "../src/shared/montage";
+
+assert.deepEqual(
+  parseDocxMontageXml(
+    `<w:p><w:r><w:t>КЭЛ, МУЖ3,</w:t></w:r><w:r><w:br/></w:r><w:r><w:br/><w:t>ИВАНОВА:</w:t></w:r><w:r><w:t> КЭТИ,</w:t></w:r></w:p>`,
+  ).map((line) => line.text),
+  ["КЭЛ, МУЖ3,", "ИВАНОВА: КЭТИ,"],
+);
 
 console.log("montage parser OK");
 

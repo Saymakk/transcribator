@@ -85,16 +85,17 @@ function actorNameWords(name: string): string[] {
 }
 
 /**
- * A cast row sometimes merges several actors:
- * "ДУЖЕНКОВА: СТАРУШКА, МИА, КОРШ: ПАЙПЕР, ДЖАРЕД,"
+ * A cast row sometimes merges several actors, with or without a space:
+ * "ДУЖЕНКОВА: СТАРУШКА, МИА, КОРШ: ПАЙПЕР"
+ * "РУБЦОВ: ЧАРЛЬЗ, ПРЕПОД,АННЕНКОВ: АДАМ"
  * Split before each later "SURNAME:" that follows a comma.
  */
 export function splitGluedActorLine(text: string): string[] {
-  const raw = text.replace(/\s+/g, " ").trim();
-  if (!raw.includes(":")) return [raw];
+  const raw = text.replace(/\s+/g, " ").trim().replace(/^[-–—]\s*/, "");
+  if (!raw.includes(":")) return raw ? [raw] : [];
   return raw
-    .split(/,\s+(?=[\p{Lu}][\p{L}\p{N}'’\-]*(?:\s+[\p{Lu}][\p{L}\p{N}'’\-]*){0,3}\s*:)/u)
-    .map((part) => part.trim())
+    .split(/,\s*(?=[\p{Lu}][\p{L}\p{N}'’\-]*(?:\s+[\p{Lu}][\p{L}\p{N}'’\-]*){0,3}\s*:)/u)
+    .map((part) => part.trim().replace(/^[-–—]\s*/, ""))
     .filter(Boolean);
 }
 
@@ -134,15 +135,35 @@ export function parseActorLine(
   const name = nameWords.join(" ");
   // "Иванова Юля, РОЛЬ, РОЛЬ" is a cast row. "РОБ УИЛСОН, ДЕТЕКТИВ" is a lower third.
   if (nameWords.length > 1 && roleParts.length < 2) return null;
+  const castRow =
+    colon > 0 &&
+    nameWords.length === 1 &&
+    roleParts.length >= 2 &&
+    roleParts.every(isSingleRoleCode);
   if (knownRoles && knownRoles.size > 0) {
     if (knownRoles.has(normalizeRole(name))) return null;
     const hits = roleParts.filter((r) => knownRoles.has(normalizeRole(r))).length;
     const need = nameWords.length > 1 ? 2 : 1;
-    if (hits < need) return null;
+    if (hits < need && !castRow) return null;
   }
   return { name, roles: roleParts.map(normalizeRole) };
 }
 
+function isSingleRoleCode(s: string): boolean {
+  const t = s.trim();
+  if (!t || t.length > 48 || /\s/.test(t) || /[.,!?;:]/.test(t) || /^\d+$/.test(t)) return false;
+  return /^[\p{L}\p{N}]+$/u.test(t);
+}
+
+/** "КЭЛ, МУЖ3, ПРОДАВЕЦ," continues the previous actor when the surname was on the line above. */
+function continuationRoles(text: string, knownRoles: Set<string>): string[] | null {
+  const raw = text.replace(/\s+/g, " ").trim().replace(/^[-–—]\s*/, "").replace(/,+$/, "");
+  if (!raw || !raw.includes(",") || raw.includes(":")) return null;
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2 || !parts.every(isSingleRoleCode)) return null;
+  if (!knownRoles.has(normalizeRole(parts[0]))) return null;
+  return parts.map(normalizeRole);
+}
 function collectKnownRoles(lines: MontageLine[]): Set<string> {
   const roles = new Set<string>();
   for (const line of lines) {
@@ -242,6 +263,18 @@ export function parseMontage(lines: MontageLine[]): MontageCast {
       continue;
     }
 
+    if (!castClosed && actors.length > 0) {
+      const extra = continuationRoles(line.text, knownRoles);
+      if (extra) {
+        const actor = actors[actors.length - 1];
+        for (const role of extra) {
+          if (titleKey && role === titleKey) continue;
+          if (!actor.roles.includes(role)) actor.roles.push(role);
+        }
+        continue;
+      }
+    }
+
     if (currentClock && line.colored) blockColored = true;
   }
   flushClock();
@@ -296,26 +329,17 @@ export function parseDocxMontageXml(xml: string): MontageLine[] {
   for (const p of paras) {
     const pPr = (p.match(/<w:pPr[\s>][\s\S]*?<\/w:pPr>/) || [""])[0];
     const pColored = isWordColored(pPr);
-    const runs = p.match(/<w:r[\s>][\s\S]*?<\/w:r>/g) ?? [];
-    let text = "";
-    let runColored = false;
-    for (const r of runs) {
-      const chunk = [...r.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)]
+    const segments = p.split(/<w:br\b[^>]*\/>/i);
+    for (const piece of segments) {
+      const text = [...piece.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)]
         .map((m) => decodeXmlEntities(m[1]))
         .join("");
-      if (!chunk) continue;
-      text += chunk;
-      if (isWordColored(r)) runColored = true;
+      const pieceRuns = piece.match(/<w:r[\s>][\s\S]*?<\/w:r>/g) ?? [];
+      const runColored = pieceRuns.some((r) => isWordColored(r)) || isWordColored(piece);
+      const line = text.replace(/\s+/g, " ").trim();
+      if (!line) continue;
+      lines.push({ text: line, colored: pColored || runColored });
     }
-    if (!text.trim() && !runs.length) {
-      const fallback = [...p.matchAll(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g)]
-        .map((m) => decodeXmlEntities(m[1]))
-        .join("");
-      text = fallback;
-    }
-    const line = text.replace(/\s+/g, " ").trim();
-    if (!line) continue;
-    lines.push({ text: line, colored: pColored || runColored });
   }
   return lines;
 }
