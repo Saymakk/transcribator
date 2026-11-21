@@ -14,6 +14,7 @@ import { LayoutList } from "./components/LayoutList";
 import { LayoutEditor, type RuleFocusRequest } from "./components/LayoutEditor";
 import { SymbolPalette } from "./components/SymbolPalette";
 import { ConvertPage } from "./components/ConvertPage";
+import { MarkersPage } from "./components/MarkersPage";
 import { TransformPage } from "./components/TransformPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { DonateModal } from "./components/DonateModal";
@@ -73,6 +74,7 @@ export default function App() {
         if (
           sec === "layouts" ||
           sec === "convert" ||
+          sec === "markers" ||
           sec === "transform" ||
           sec === "settings"
         ) {
@@ -374,6 +376,7 @@ export default function App() {
               }
             />
           )}
+          {section === "markers" && <MarkersPage />}
           {section === "transform" && <TransformPage />}
           {section === "settings" && (
             <SettingsPage

@@ -37,10 +37,28 @@ export type CustomPalette = {
   symbols: string[];
 };
 
-export type AssSrtPrefs = {
+export type AssFieldCase = "as-is" | "upper" | "lower";
+
+export type AssSrtFormat = {
   fields: string[];
   separator: string;
   keepEmpty: boolean;
+  fieldWrappers: Record<string, string>;
+  actorWrapper: string;
+  actorSeparator: string | null;
+  fieldCases: Record<string, AssFieldCase>;
+  actorCase: AssFieldCase;
+  omitEmptyWrapped: boolean;
+  skipCuesWithoutActor: boolean;
+};
+
+export type AssSrtProfile = AssSrtFormat & {
+  id: string;
+  name: string;
+};
+
+export type AssSrtPrefs = AssSrtFormat & {
+  profiles: AssSrtProfile[];
 };
 
 export type UpdateProviderId = "github" | "generic";

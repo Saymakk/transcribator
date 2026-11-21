@@ -10,12 +10,20 @@ import type {
 type MontageLine = { text: string; colored?: boolean };
 
 export type OpenFileResult =
-  | { ok: true; name: string; text: string; montageLines?: MontageLine[] }
+  | { ok: true; path: string; name: string; text: string; montageLines?: MontageLine[] }
   | { ok: false; canceled: true }
   | { ok: false; canceled: false; error: string };
 
 export type OpenFilesResult =
-  | { ok: true; items: Array<{ name: string; text: string; montageLines?: MontageLine[] }> }
+  | {
+      ok: true;
+      items: Array<{
+        path: string;
+        name: string;
+        text: string;
+        montageLines?: MontageLine[];
+      }>;
+    }
   | { ok: false; canceled: true }
   | { ok: false; canceled: false; error: string };
 
@@ -53,6 +61,7 @@ export type TranscribatorApi = {
   openAccessibilitySettings: () => Promise<void>;
   openDocument: () => Promise<OpenFileResult>;
   openDocuments: () => Promise<OpenFilesResult>;
+  openMarkers: () => Promise<OpenFileResult>;
   openTextOrPdf: () => Promise<OpenFileResult>;
   extractDocument: (name: string, bytes: ArrayBuffer) => Promise<ExtractResult>;
   openVideos: () => Promise<
@@ -106,6 +115,8 @@ export type TranscribatorApi = {
     | { ok: false; error: string }
   >;
   saveText: (suggestedName: string, content: string) => Promise<SaveFileResult>;
+  savePlainText: (suggestedName: string, content: string) => Promise<SaveFileResult>;
+  writeText: (filePath: string, content: string) => Promise<SaveFileResult>;
   openExternal: (url: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   getAppVersion: () => Promise<string>;
   getUpdateStatus: () => Promise<import("./components/UpdatePanel").UpdateStatus>;

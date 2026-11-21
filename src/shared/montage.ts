@@ -315,10 +315,22 @@ export function prefixCueWithActors(
   startRaw: string,
   cast: MontageCast | null | undefined,
   separator = ". ",
+  actorWrapper = "",
+  actorCase: "as-is" | "upper" | "lower" = "as-is",
 ): string {
   if (!cast) return body;
-  const prefix = formatActorPrefix(roleRaw, startRaw, cast);
+  let prefix = formatActorPrefix(roleRaw, startRaw, cast);
   if (!prefix) return body;
+  if (actorCase === "upper") prefix = prefix.toLocaleUpperCase("ru-RU");
+  else if (actorCase === "lower") prefix = prefix.toLocaleLowerCase("ru-RU");
+  const wrap = actorWrapper.trim();
+  if (wrap) {
+    if (wrap.length === 1) prefix = `${wrap}${prefix}${wrap}`;
+    else {
+      const mid = Math.floor(wrap.length / 2);
+      prefix = `${wrap.slice(0, mid)}${prefix}${wrap.slice(mid)}`;
+    }
+  }
   if (!body.trim()) return prefix;
   return `${prefix}${separator}${body}`;
 }

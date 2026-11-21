@@ -299,14 +299,6 @@ function updateTray(): void {
     },
     { type: "separator" },
     {
-      label: t(m, "tray.translitToggle"),
-      type: "checkbox",
-      checked: state.mode !== "off",
-      accelerator: TRANSLIT_TOGGLE_ACCEL,
-      click: () => broadcastState(store.toggleTranslitEnabled()),
-    },
-    { type: "separator" },
-    {
       label: t(m, "tray.openSettings"),
       click: () => {
         showMainWindowMaximized();
@@ -394,6 +386,7 @@ function registerIpc(): void {
   const MONTAGES_EXT = /\.(docx|doc|dotx)$/i;
 
 async function readOpenedFile(filePath: string): Promise<{
+  path: string;
   name: string;
   text: string;
   montageLines?: { text: string; colored?: boolean }[];
@@ -401,9 +394,9 @@ async function readOpenedFile(filePath: string): Promise<{
   const name = path.basename(filePath);
   const data = fs.readFileSync(filePath);
   const text = await extractDocumentText(name, data);
-  if (!MONTAGES_EXT.test(name)) return { name, text };
+  if (!MONTAGES_EXT.test(name)) return { path: filePath, name, text };
   const montageLines = await extractMontageLines(name, data);
-  return { name, text, montageLines };
+  return { path: filePath, name, text, montageLines };
 }
 
 ipcMain.handle("file:openDocument", async () => {
@@ -573,6 +566,97 @@ ipcMain.handle("file:openDocument", async () => {
       const data = await encodeExportContent(String(content ?? ""), filePath);
       fs.writeFileSync(filePath, data);
       return { ok: true as const, path: filePath };
+    } catch (error) {
+      return {
+        ok: false as const,
+        canceled: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  /** Overwrite an already-opened path with plain UTF-8 text (no export wrappers). */
+  ipcMain.handle("file:writeText", async (_e, filePath: string, content: string) => {
+    const target = typeof filePath === "string" ? filePath.trim() : "";
+    if (!target) {
+      return { ok: false as const, canceled: false as const, error: "No path" };
+    }
+    if (!path.isAbsolute(target)) {
+      return {
+        ok: false as const,
+        canceled: false as const,
+        error: "Path must be absolute",
+      };
+    }
+    try {
+      fs.writeFileSync(target, String(content ?? ""), "utf8");
+      return { ok: true as const, path: target };
+    } catch (error) {
+      return {
+        ok: false as const,
+        canceled: false as const,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+
+  /** Save As for plain text formats that must not go through export wrappers (.xml markers, etc.). */
+  ipcMain.handle(
+    "file:savePlainText",
+    async (_e, suggestedName: string, content: string) => {
+      const m = msg();
+      const suggested = suggestedName || "markers.xml";
+      const result = await dialog.showSaveDialog({
+        title: t(m, "files.saveTitle"),
+        defaultPath: suggested,
+        filters: [
+          {
+            name: t(m, "markers.filterMarkers"),
+            extensions: ["xml", "txt", "csv", "text"],
+          },
+          { name: t(m, "files.filterAll"), extensions: ["*"] },
+        ],
+      });
+      if (result.canceled || !result.filePath) {
+        return { ok: false as const, canceled: true as const };
+      }
+      try {
+        let filePath = result.filePath;
+        if (!path.extname(filePath)) {
+          const fallback = extOfPath(suggested) || "xml";
+          filePath = `${filePath}.${fallback}`;
+        }
+        fs.writeFileSync(filePath, String(content ?? ""), "utf8");
+        return { ok: true as const, path: filePath };
+      } catch (error) {
+        return {
+          ok: false as const,
+          canceled: false as const,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle("file:openMarkers", async () => {
+    const m = msg();
+    const result = await dialog.showOpenDialog({
+      title: t(m, "markers.openTitle"),
+      properties: ["openFile"],
+      filters: [
+        {
+          name: t(m, "markers.filterMarkers"),
+          extensions: ["xml", "txt", "csv", "text"],
+        },
+        { name: t(m, "files.filterAll"), extensions: ["*"] },
+      ],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false as const, canceled: true as const };
+    }
+    try {
+      const item = await readOpenedFile(result.filePaths[0]);
+      return { ok: true as const, ...item };
     } catch (error) {
       return {
         ok: false as const,

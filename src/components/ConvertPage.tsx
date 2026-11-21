@@ -1,5 +1,13 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import type { AssSrtPrefs, Layout, PuntoDictEntry, PuntoPairId } from "../shared/types";
+import type {
+  AssFieldCase,
+  AssSrtFormat,
+  AssSrtPrefs,
+  AssSrtProfile,
+  Layout,
+  PuntoDictEntry,
+  PuntoPairId,
+} from "../shared/types";
 import { DEFAULT_ASS_SRT_PREFS } from "../shared/types";
 import {
   binaryToText,
@@ -9,8 +17,26 @@ import {
   transliterateLettersOnly,
 } from "../shared/convert";
 import { formatSupportHint, isSupportedDocument } from "../shared/documentFormats";
-import { resolveAssFields } from "../shared/assSrtPrefs";
-import { assParsedToSrt, looksLikeAss, parseAss } from "../shared/assToSrt";
+import {
+  applyAssPreset,
+  ASS_FORMAT_PRESETS,
+  applyFormatToPrefs,
+  caseForField,
+  cloneFormat,
+  formatSnapshot,
+  formatsEqual,
+  resolveAssFields,
+  resolveActorSeparator,
+  wrapperForField,
+} from "../shared/assSrtPrefs";
+import { CUE_MARKUP_PRESETS } from "../shared/cueMarkup";
+import {
+  formatAssCueLine,
+  looksLikeAss,
+  optionsFromFormat,
+  parseAss,
+  assParsedToSrt,
+} from "../shared/assToSrt";
 import {
   looksLikeMontage,
   montageLinesFromPlainText,
@@ -23,6 +49,13 @@ import { loadDictPacks } from "../shared/dicts/load";
 import { videoSupportHint } from "../shared/videoFormats";
 import { useLocale } from "../i18n/LocaleContext";
 import { VideoSubsPanel } from "./VideoSubsPanel";
+
+const WRAPPER_PRESETS = ["", "[]", "{}", "()", "«»"] as const;
+const CASE_OPTIONS: AssFieldCase[] = ["as-is", "upper", "lower"];
+
+function newProfileId(): string {
+  return `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 type Props = {
   layout: Layout;
@@ -73,9 +106,13 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
   const [dragFieldIndex, setDragFieldIndex] = useState<number | null>(null);
   const [dropFieldIndex, setDropFieldIndex] = useState<number | null>(null);
 
-  const [assFields, setAssFields] = useState<string[]>(() => [...prefs.fields]);
-  const [assSeparator, setAssSeparator] = useState(() => prefs.separator);
-  const [assKeepEmpty, setAssKeepEmpty] = useState(() => prefs.keepEmpty);
+  const [format, setFormat] = useState<AssSrtFormat>(() => formatSnapshot(prefs));
+  const [profiles, setProfiles] = useState<AssSrtProfile[]>(() =>
+    (prefs.profiles ?? []).map((p) => ({ ...cloneFormat(p), id: p.id, name: p.name })),
+  );
+  const [customActorSep, setCustomActorSep] = useState(
+    () => prefs.actorSeparator !== null,
+  );
   const skipPersist = useRef(true);
   const prefsFieldsKey = prefs.fields.join("\0");
 
@@ -89,17 +126,27 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
   const formatKey = formatColumns.join("\0");
 
   useEffect(() => {
-    setAssSeparator(prefs.separator);
-    setAssKeepEmpty(prefs.keepEmpty);
-  }, [prefs.separator, prefs.keepEmpty]);
+    setFormat(formatSnapshot(prefs));
+    setProfiles((prefs.profiles ?? []).map((p) => ({ ...cloneFormat(p), id: p.id, name: p.name })));
+    setCustomActorSep(prefs.actorSeparator !== null);
+  }, [prefs]);
 
   // Restore saved field order when the ASS Format: columns change.
   useEffect(() => {
     if (formatColumns.length === 0) {
-      setAssFields([]);
+      setFormat((prev) => (prev.fields.length ? { ...prev, fields: [] } : prev));
       return;
     }
-    setAssFields(resolveAssFields(formatColumns, prefs.fields));
+    const nextFields = resolveAssFields(formatColumns, prefs.fields);
+    setFormat((prev) => {
+      if (
+        prev.fields.length === nextFields.length &&
+        prev.fields.every((f, i) => f === nextFields[i])
+      ) {
+        return prev;
+      }
+      return { ...prev, fields: nextFields };
+    });
   }, [formatKey, prefsFieldsKey]);
 
   useEffect(() => {
@@ -108,20 +155,27 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
       return;
     }
     const next: AssSrtPrefs = {
-      fields: assFields.length > 0 ? assFields : prefs.fields,
-      separator: assSeparator,
-      keepEmpty: assKeepEmpty,
+      ...applyFormatToPrefs(prefs, {
+        ...format,
+        fields: format.fields.length > 0 ? format.fields : prefs.fields,
+        actorSeparator: customActorSep ? format.actorSeparator ?? format.separator : null,
+      }),
+      profiles,
     };
     if (
-      next.separator === prefs.separator &&
-      next.keepEmpty === prefs.keepEmpty &&
-      next.fields.length === prefs.fields.length &&
-      next.fields.every((f, i) => f === prefs.fields[i])
+      formatsEqual(formatSnapshot(next), formatSnapshot(prefs)) &&
+      next.profiles.length === prefs.profiles.length &&
+      next.profiles.every(
+        (p, i) =>
+          p.id === prefs.profiles[i]?.id &&
+          p.name === prefs.profiles[i]?.name &&
+          formatsEqual(p, prefs.profiles[i]),
+      )
     ) {
       return;
     }
     onAssSrtPrefsChange(next);
-  }, [assFields, assSeparator, assKeepEmpty]);
+  }, [format, profiles, customActorSep]);
 
   const puntoPair = useMemo(() => getPuntoPair(puntoPairId), [puntoPairId]);
 
@@ -203,17 +257,102 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
     [montageLines],
   );
 
+  const activeFormat = useMemo<AssSrtFormat>(
+    () => ({
+      ...format,
+      fields: format.fields.length
+        ? format.fields
+        : resolveAssFields(formatColumns, prefs.fields),
+      actorSeparator: customActorSep ? format.actorSeparator ?? format.separator : null,
+    }),
+    [format, formatColumns, prefs.fields, customActorSep],
+  );
+
+  const srtOptions = useMemo(
+    () => optionsFromFormat(activeFormat, montageCast),
+    [activeFormat, montageCast],
+  );
+
   const srtOut = useMemo(() => {
     if (!assParsed) return "";
-    return assParsedToSrt(assParsed, {
-      fields: assFields.length
-        ? assFields
-        : resolveAssFields(formatColumns, prefs.fields),
-      separator: assSeparator,
-      keepEmpty: assKeepEmpty,
-      montage: montageCast,
+    return assParsedToSrt(assParsed, srtOptions);
+  }, [assParsed, srtOptions]);
+
+  const cuePreview = useMemo(() => {
+    if (!assParsed?.rows.length) {
+      return t("convert.assPreviewEmpty");
+    }
+    for (const row of assParsed.rows) {
+      const line = formatAssCueLine(row, srtOptions);
+      if (line) return line.replace(/\n/g, " / ");
+    }
+    return t("convert.assPreviewEmpty");
+  }, [assParsed, srtOptions, t]);
+
+  const patchFormat = (patch: Partial<AssSrtFormat>) => {
+    setFormat((prev) => ({ ...prev, ...patch }));
+  };
+
+  const setFieldWrapper = (field: string, wrapper: string) => {
+    setFormat((prev) => {
+      const nextWrappers: Record<string, string> = {};
+      for (const [key, value] of Object.entries(prev.fieldWrappers)) {
+        if (key.toLowerCase() === field.toLowerCase()) continue;
+        nextWrappers[key] = value;
+      }
+      const trimmed = wrapper.trim();
+      if (trimmed) nextWrappers[field] = trimmed;
+      return { ...prev, fieldWrappers: nextWrappers };
     });
-  }, [assParsed, assFields, assSeparator, assKeepEmpty, formatColumns, prefs.fields, montageCast]);
+  };
+
+  const setFieldCase = (field: string, mode: AssFieldCase) => {
+    setFormat((prev) => {
+      const nextCases: Record<string, AssFieldCase> = {};
+      for (const [key, value] of Object.entries(prev.fieldCases)) {
+        if (key.toLowerCase() === field.toLowerCase()) continue;
+        nextCases[key] = value;
+      }
+      if (mode !== "as-is") nextCases[field] = mode;
+      return { ...prev, fieldCases: nextCases };
+    });
+  };
+
+  const applyPreset = (presetId: (typeof ASS_FORMAT_PRESETS)[number]["id"]) => {
+    const preset = ASS_FORMAT_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    const next = applyAssPreset(preset, formatColumns.length ? formatColumns : ["Name", "Text"]);
+    setFormat(next);
+    setCustomActorSep(next.actorSeparator !== null);
+  };
+
+  const saveProfile = () => {
+    const name = window.prompt(t("convert.assProfileNamePrompt"), t("convert.assProfileDefaultName"));
+    if (!name || !name.trim()) return;
+    const profile: AssSrtProfile = {
+      id: newProfileId(),
+      name: name.trim(),
+      ...cloneFormat(activeFormat),
+    };
+    setProfiles((prev) => [...prev, profile]);
+  };
+
+  const loadProfile = (id: string) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    setFormat(cloneFormat(profile));
+    setCustomActorSep(profile.actorSeparator !== null);
+  };
+
+  const deleteProfile = (id: string) => {
+    setProfiles((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const assFields = activeFormat.fields;
+  const assFieldWrappers = activeFormat.fieldWrappers;
+  const assActorWrapper = activeFormat.actorWrapper;
+  const assSeparator = activeFormat.separator;
+  const assKeepEmpty = activeFormat.keepEmpty;
 
   const output =
     mode === "ass-srt"
@@ -238,7 +377,10 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
     setError(null);
     setMode("ass-srt");
     const parsed = parseAss(text);
-    setAssFields(resolveAssFields(parsed.formatColumns, prefs.fields));
+    setFormat((prev) => ({
+      ...prev,
+      fields: resolveAssFields(parsed.formatColumns, prefs.fields),
+    }));
   };
 
   const applyMontage = (name: string, lines: MontageLine[]) => {
@@ -268,7 +410,10 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
       if (looksLikeAss(other.text)) {
         setMode("ass-srt");
         const parsed = parseAss(other.text);
-        setAssFields(resolveAssFields(parsed.formatColumns, prefs.fields));
+        setFormat((prev) => ({
+          ...prev,
+          fields: resolveAssFields(parsed.formatColumns, prefs.fields),
+        }));
       }
     }
 
@@ -341,32 +486,36 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
   };
 
   const toggleField = (field: string) => {
-    setAssFields((prev) => {
-      if (prev.some((f) => f.toLowerCase() === field.toLowerCase())) {
-        const next = prev.filter((f) => f.toLowerCase() !== field.toLowerCase());
-        return next.length ? next : resolveAssFields(formatColumns, prefs.fields);
+    setFormat((prev) => {
+      const list = prev.fields;
+      if (list.some((f) => f.toLowerCase() === field.toLowerCase())) {
+        const next = list.filter((f) => f.toLowerCase() !== field.toLowerCase());
+        return {
+          ...prev,
+          fields: next.length ? next : resolveAssFields(formatColumns, prefs.fields),
+        };
       }
-      return [...prev, field];
+      return { ...prev, fields: [...list, field] };
     });
   };
 
   const moveField = (index: number, dir: -1 | 1) => {
-    setAssFields((prev) => {
-      const next = [...prev];
+    setFormat((prev) => {
+      const next = [...prev.fields];
       const j = index + dir;
       if (j < 0 || j >= next.length) return prev;
       [next[index], next[j]] = [next[j], next[index]];
-      return next;
+      return { ...prev, fields: next };
     });
   };
 
   const reorderField = (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
-    setAssFields((prev) => {
-      const next = [...prev];
+    setFormat((prev) => {
+      const next = [...prev.fields];
       const [item] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, item);
-      return next;
+      return { ...prev, fields: next };
     });
   };
 
@@ -590,6 +739,53 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
               </button>
             )}
           </div>
+          <div className="ass-presets-row">
+            <span className="pane-title">{t("convert.assPresets")}</span>
+            <div className="ass-wrap-presets">
+              {ASS_FORMAT_PRESETS.map((preset) => {
+                const cue = CUE_MARKUP_PRESETS.find((p) => p.id === preset.id);
+                return (
+                  <button
+                    type="button"
+                    key={preset.id}
+                    className="btn btn-sm"
+                    onClick={() => applyPreset(preset.id)}
+                    title={t(`convert.assPreset_${preset.id}`)}
+                  >
+                    {cue?.sample ?? t(`convert.assPreset_${preset.id}`)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="ass-presets-row">
+            <span className="pane-title">{t("convert.assProfiles")}</span>
+            <div className="ass-wrap-presets">
+              <button type="button" className="btn btn-sm" onClick={saveProfile}>
+                {t("convert.assProfileSave")}
+              </button>
+              {profiles.map((profile) => (
+                <span className="ass-profile-chip" key={profile.id}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => loadProfile(profile.id)}
+                    title={t("convert.assProfileLoad")}
+                  >
+                    {profile.name}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => deleteProfile(profile.id)}
+                    title={t("convert.assProfileDelete")}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
           <h3>{t("convert.assFields")}</h3>
           {formatColumns.length === 0 ? (
             <p className="hint">{t("convert.assNoDialogues")}</p>
@@ -622,67 +818,117 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
                 <p className="pane-title">{t("convert.assFieldsOrder")}</p>
                 <p className="hint ass-order-hint">{t("convert.assDragHint")}</p>
                 <div className="ass-order-list">
-                  {assFields.map((field, index) => (
-                    <div
-                      className={`ass-order-row${
-                        dragFieldIndex === index ? " is-dragging" : ""
-                      }${dropFieldIndex === index ? " is-drop-target" : ""}`}
-                      key={field}
-                      draggable
-                      onDragStart={(e) => {
-                        if ((e.target as HTMLElement).closest("button")) {
+                  {assFields.map((field, index) => {
+                    const wrap = wrapperForField(assFieldWrappers, field);
+                    const fieldCase = caseForField(activeFormat.fieldCases, field);
+                    return (
+                      <div
+                        className={`ass-order-row${
+                          dragFieldIndex === index ? " is-dragging" : ""
+                        }${dropFieldIndex === index ? " is-drop-target" : ""}`}
+                        key={field}
+                        draggable
+                        onDragStart={(e) => {
+                          if ((e.target as HTMLElement).closest("button,input,select")) {
+                            e.preventDefault();
+                            return;
+                          }
+                          setDragFieldIndex(index);
+                          setDropFieldIndex(index);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", String(index));
+                        }}
+                        onDragOver={(e) => {
                           e.preventDefault();
-                          return;
-                        }
-                        setDragFieldIndex(index);
-                        setDropFieldIndex(index);
-                        e.dataTransfer.effectAllowed = "move";
-                        e.dataTransfer.setData("text/plain", String(index));
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                        if (dropFieldIndex !== index) setDropFieldIndex(index);
-                      }}
-                      onDragLeave={(e) => {
-                        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                        if (dropFieldIndex === index) setDropFieldIndex(null);
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const from = dragFieldIndex ?? Number(e.dataTransfer.getData("text/plain"));
-                        if (!Number.isNaN(from)) reorderField(from, index);
-                        clearFieldDrag();
-                      }}
-                      onDragEnd={clearFieldDrag}
-                    >
-                      <span className="ass-order-grip" aria-hidden title={t("convert.assDragHint")}>
-                        ⠿
-                      </span>
-                      <span className="ass-order-index">{index + 1}</span>
-                      <span className="ass-order-name">{field}</span>
-                      <div className="row-actions ass-order-actions">
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          disabled={index <= 0}
-                          onClick={() => moveField(index, -1)}
-                          title={t("convert.assMoveUp")}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm"
-                          disabled={index >= assFields.length - 1}
-                          onClick={() => moveField(index, 1)}
-                          title={t("convert.assMoveDown")}
-                        >
-                          ↓
-                        </button>
+                          e.dataTransfer.dropEffect = "move";
+                          if (dropFieldIndex !== index) setDropFieldIndex(index);
+                        }}
+                        onDragLeave={(e) => {
+                          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                          if (dropFieldIndex === index) setDropFieldIndex(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const from =
+                            dragFieldIndex ?? Number(e.dataTransfer.getData("text/plain"));
+                          if (!Number.isNaN(from)) reorderField(from, index);
+                          clearFieldDrag();
+                        }}
+                        onDragEnd={clearFieldDrag}
+                      >
+                        <span className="ass-order-grip" aria-hidden title={t("convert.assDragHint")}>
+                          ⠿
+                        </span>
+                        <span className="ass-order-index">{index + 1}</span>
+                        <span className="ass-order-name">{field}</span>
+                        <div className="ass-wrap-controls" title={t("convert.assWrapperHint")}>
+                          <span className="hint ass-wrap-label">{t("convert.assWrapper")}</span>
+                          <div className="ass-wrap-presets">
+                            {WRAPPER_PRESETS.map((preset) => (
+                              <button
+                                type="button"
+                                key={`${field}:${preset || "none"}`}
+                                className={`btn btn-sm ass-wrap-preset${
+                                  wrap === preset ? " is-on" : ""
+                                }`}
+                                onClick={() => setFieldWrapper(field, preset)}
+                                title={
+                                  preset
+                                    ? t("convert.assWrapperExample", {
+                                        sample: preset[0] + "…" + preset.slice(1),
+                                      })
+                                    : t("convert.assWrapperNone")
+                                }
+                              >
+                                {preset || "∅"}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            className="ass-wrap-input"
+                            value={wrap}
+                            onChange={(e) => setFieldWrapper(field, e.target.value)}
+                            placeholder="[]"
+                            spellCheck={false}
+                            aria-label={t("convert.assWrapper")}
+                          />
+                          <select
+                            className="ass-case-select"
+                            value={fieldCase}
+                            onChange={(e) => setFieldCase(field, e.target.value as AssFieldCase)}
+                            aria-label={t("convert.assCase")}
+                            title={t("convert.assCase")}
+                          >
+                            {CASE_OPTIONS.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {t(`convert.assCase_${opt}`)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="row-actions ass-order-actions">
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            disabled={index <= 0}
+                            onClick={() => moveField(index, -1)}
+                            title={t("convert.assMoveUp")}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            disabled={index >= assFields.length - 1}
+                            onClick={() => moveField(index, 1)}
+                            title={t("convert.assMoveDown")}
+                          >
+                            ↓
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -691,20 +937,113 @@ export function ConvertPage({ layout, assSrtPrefs, onAssSrtPrefsChange }: Props)
             <span className="pane-title">{t("convert.assSeparator")}</span>
             <input
               value={assSeparator}
-              onChange={(e) => setAssSeparator(e.target.value)}
+              onChange={(e) => patchFormat({ separator: e.target.value })}
               placeholder=". "
               spellCheck={false}
             />
             <span className="hint">{t("convert.assSeparatorHint")}</span>
           </label>
+          <div className="ass-sep-row ass-actor-wrap-row">
+            <span className="pane-title">{t("convert.assActorWrapper")}</span>
+            <div className="ass-wrap-presets">
+              {WRAPPER_PRESETS.map((preset) => (
+                <button
+                  type="button"
+                  key={`actor:${preset || "none"}`}
+                  className={`btn btn-sm ass-wrap-preset${
+                    assActorWrapper.trim() === preset ? " is-on" : ""
+                  }`}
+                  onClick={() => patchFormat({ actorWrapper: preset })}
+                  title={
+                    preset
+                      ? t("convert.assWrapperExample", {
+                          sample: preset[0] + "…" + preset.slice(1),
+                        })
+                      : t("convert.assWrapperNone")
+                  }
+                >
+                  {preset || "∅"}
+                </button>
+              ))}
+            </div>
+            <input
+              className="ass-wrap-input"
+              value={assActorWrapper}
+              onChange={(e) => patchFormat({ actorWrapper: e.target.value })}
+              placeholder="{}"
+              spellCheck={false}
+            />
+            <select
+              className="ass-case-select"
+              value={activeFormat.actorCase}
+              onChange={(e) => patchFormat({ actorCase: e.target.value as AssFieldCase })}
+              aria-label={t("convert.assActorCase")}
+              title={t("convert.assActorCase")}
+            >
+              {CASE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {t(`convert.assCase_${opt}`)}
+                </option>
+              ))}
+            </select>
+            <span className="hint">{t("convert.assActorWrapperHint")}</span>
+          </div>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={customActorSep}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setCustomActorSep(on);
+                patchFormat({
+                  actorSeparator: on
+                    ? format.actorSeparator ?? format.separator
+                    : null,
+                });
+              }}
+            />
+            {t("convert.assActorSeparatorToggle")}
+          </label>
+          {customActorSep && (
+            <label className="ass-sep-row">
+              <span className="pane-title">{t("convert.assActorSeparator")}</span>
+              <input
+                value={resolveActorSeparator(activeFormat)}
+                onChange={(e) => patchFormat({ actorSeparator: e.target.value })}
+                placeholder=". "
+                spellCheck={false}
+              />
+              <span className="hint">{t("convert.assActorSeparatorHint")}</span>
+            </label>
+          )}
           <label className="check-row">
             <input
               type="checkbox"
               checked={assKeepEmpty}
-              onChange={(e) => setAssKeepEmpty(e.target.checked)}
+              onChange={(e) => patchFormat({ keepEmpty: e.target.checked })}
             />
             {t("convert.assKeepEmpty")}
           </label>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={activeFormat.omitEmptyWrapped}
+              onChange={(e) => patchFormat({ omitEmptyWrapped: e.target.checked })}
+            />
+            {t("convert.assOmitEmptyWrapped")}
+          </label>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={activeFormat.skipCuesWithoutActor}
+              onChange={(e) => patchFormat({ skipCuesWithoutActor: e.target.checked })}
+            />
+            {t("convert.assSkipWithoutActor")}
+          </label>
+          <div className="ass-live-preview">
+            <span className="pane-title">{t("convert.assLivePreview")}</span>
+            <code className="ass-live-preview-line">{cuePreview}</code>
+          </div>
           {formatColumns.length > 0 && !srtOut && input.trim() && (
             <p className="hint">{t("convert.assNoDialogues")}</p>
           )}

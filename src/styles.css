@@ -1243,6 +1243,59 @@ button {
   margin-bottom: 12px;
 }
 
+.ass-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.ass-presets-row .pane-title {
+  margin: 0;
+  min-width: 7rem;
+}
+
+.ass-profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ass-case-select {
+  background: var(--bg0);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 3px 4px;
+  font: inherit;
+  font-size: 0.72rem;
+  max-width: 6.5rem;
+}
+
+.ass-live-preview {
+  margin: 10px 0 4px;
+  padding: 8px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--bg0);
+}
+
+.ass-live-preview .pane-title {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.ass-live-preview-line {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
 .ass-field-list {
   display: flex;
   flex-direction: column;
@@ -1326,7 +1379,7 @@ button {
 
 .ass-order-row {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 6px;
   border: 1px solid var(--line);
@@ -1336,6 +1389,55 @@ button {
   cursor: grab;
   user-select: none;
   transition: border-color 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+}
+
+.ass-wrap-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ass-wrap-label {
+  margin: 0;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.ass-wrap-presets {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ass-wrap-preset {
+  min-width: 1.7rem;
+  padding: 2px 4px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.ass-wrap-preset.is-on {
+  border-color: var(--accent);
+  background: rgba(61, 184, 154, 0.18);
+}
+
+.ass-wrap-input {
+  width: 52px;
+  background: var(--bg0);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 3px 5px;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.ass-actor-wrap-row .ass-wrap-input {
+  width: 64px;
 }
 
 .ass-order-row:active {
@@ -1426,6 +1528,14 @@ button {
 @media (max-width: 900px) {
   .ass-fields-compact {
     grid-template-columns: 1fr;
+  }
+
+  .ass-order-row {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+  }
+
+  .ass-wrap-controls {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1645,6 +1755,149 @@ button {
   color: #e57373;
   margin: 0 0 4px;
   font-size: 0.85rem;
+}
+
+.markers-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.markers-filter {
+  min-width: 160px;
+  flex: 1 1 180px;
+  background: var(--bg0);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.markers-table-wrap {
+  overflow: auto;
+  max-height: min(60vh, 560px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg0);
+}
+
+.markers-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.markers-table th,
+.markers-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 8px;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.markers-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg1);
+  z-index: 1;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.markers-table tr.is-invalid {
+  background: rgba(229, 115, 115, 0.12);
+}
+
+.markers-table tr.is-selected {
+  background: rgba(61, 184, 154, 0.1);
+}
+
+.markers-col-head {
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.markers-col-head.is-dragging {
+  opacity: 0.45;
+}
+
+.markers-col-head.is-drop-target {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.markers-markup-row {
+  margin-top: 10px;
+}
+
+.markers-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.ass-wrap-presets .btn.is-on,
+.markers-markup-row .btn.is-on {
+  border-color: var(--accent);
+  background: rgba(61, 184, 154, 0.18);
+}
+
+.markers-table select,
+.markers-time,
+.markers-text {
+  width: 100%;
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 4px 6px;
+  font: inherit;
+}
+
+.markers-time {
+  font-family: var(--mono);
+  min-width: 7.5rem;
+}
+
+.markers-text {
+  min-width: 12rem;
+}
+
+.markers-actions {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.markers-actions .btn {
+  margin-left: 2px;
+}
+
+.mono-path {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.markers-raw {
+  margin-top: 12px;
+}
+
+.markers-raw pre {
+  margin: 8px 0 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg0);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow: auto;
 }
 
 

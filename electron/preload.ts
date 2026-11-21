@@ -8,12 +8,20 @@ import type {
 type MontageLine = { text: string; colored?: boolean };
 
 export type OpenFileResult =
-  | { ok: true; name: string; text: string; montageLines?: MontageLine[] }
+  | { ok: true; path: string; name: string; text: string; montageLines?: MontageLine[] }
   | { ok: false; canceled: true }
   | { ok: false; canceled: false; error: string };
 
 export type OpenFilesResult =
-  | { ok: true; items: Array<{ name: string; text: string; montageLines?: MontageLine[] }> }
+  | {
+      ok: true;
+      items: Array<{
+        path: string;
+        name: string;
+        text: string;
+        montageLines?: MontageLine[];
+      }>;
+    }
   | { ok: false; canceled: true }
   | { ok: false; canceled: false; error: string };
 
@@ -68,6 +76,7 @@ const api = {
     ipcRenderer.invoke("system:openAccessibility"),
   openDocument: (): Promise<OpenFileResult> => ipcRenderer.invoke("file:openDocument"),
   openDocuments: (): Promise<OpenFilesResult> => ipcRenderer.invoke("file:openDocuments"),
+  openMarkers: (): Promise<OpenFileResult> => ipcRenderer.invoke("file:openMarkers"),
   /** @deprecated use openDocument */
   openTextOrPdf: (): Promise<OpenFileResult> => ipcRenderer.invoke("file:openDocument"),
   extractDocument: (name: string, bytes: ArrayBuffer): Promise<ExtractResult> =>
@@ -126,6 +135,10 @@ const api = {
   > => ipcRenderer.invoke("file:extractSubtitles", paths, selection),
   saveText: (suggestedName: string, content: string): Promise<SaveFileResult> =>
     ipcRenderer.invoke("file:saveText", suggestedName, content),
+  savePlainText: (suggestedName: string, content: string): Promise<SaveFileResult> =>
+    ipcRenderer.invoke("file:savePlainText", suggestedName, content),
+  writeText: (filePath: string, content: string): Promise<SaveFileResult> =>
+    ipcRenderer.invoke("file:writeText", filePath, content),
   openExternal: (url: string): Promise<{ ok: true } | { ok: false; error: string }> =>
     ipcRenderer.invoke("shell:openExternal", url),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke("app:getVersion"),

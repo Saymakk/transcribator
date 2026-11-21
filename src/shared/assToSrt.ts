@@ -3,8 +3,16 @@
  * Dialogue columns are taken from the file's own Format: line under [Events].
  */
 
+import type { AssFieldCase, AssSrtFormat } from "./types";
 import type { MontageCast } from "./montage";
-import { prefixCueWithActors } from "./montage";
+import { formatActorPrefix, prefixCueWithActors } from "./montage";
+import {
+  applyFieldCase,
+  applyFieldWrapper,
+  caseForField,
+  resolveActorSeparator,
+  wrapperForField,
+} from "./assSrtPrefs";
 
 export type AssToSrtOptions = {
   /** Column names from the file Format line, in the order to join into cue text. */
@@ -13,6 +21,16 @@ export type AssToSrtOptions = {
   separator: string;
   /** Keep empty field values in the joined string. */
   keepEmpty?: boolean;
+  /** Optional wrap per field name, e.g. { Name: "[]" } → [ЛЮСИ]. */
+  fieldWrappers?: Record<string, string>;
+  /** Wrap for montage actor prefix, e.g. "{}" → {Абрамова}. */
+  actorWrapper?: string;
+  /** Separator between actor and cue body; null/undefined → use `separator`. */
+  actorSeparator?: string | null;
+  fieldCases?: Record<string, AssFieldCase>;
+  actorCase?: AssFieldCase;
+  omitEmptyWrapped?: boolean;
+  skipCuesWithoutActor?: boolean;
   /** Optional dubbing montage: prepend actor names before cue text. */
   montage?: MontageCast | null;
 };
@@ -163,10 +181,38 @@ function fieldValue(row: AssEventRow, field: string): string {
   return raw;
 }
 
+export function optionsFromFormat(
+  format: AssSrtFormat,
+  montage?: MontageCast | null,
+): AssToSrtOptions {
+  return {
+    fields: format.fields,
+    separator: format.separator,
+    keepEmpty: format.keepEmpty,
+    fieldWrappers: format.fieldWrappers,
+    actorWrapper: format.actorWrapper,
+    actorSeparator: format.actorSeparator,
+    fieldCases: format.fieldCases,
+    actorCase: format.actorCase,
+    omitEmptyWrapped: format.omitEmptyWrapped,
+    skipCuesWithoutActor: format.skipCuesWithoutActor,
+    montage,
+  };
+}
+
 export function formatAssCueBody(row: AssEventRow, options: AssToSrtOptions): string {
   const fields = options.fields.length ? options.fields : ["Text"];
   const sep = options.separator;
-  const parts = fields.map((f) => fieldValue(row, f));
+  const omitEmptyWrap = options.omitEmptyWrapped !== false;
+  const parts = fields.map((f) => {
+    let raw = fieldValue(row, f);
+    raw = applyFieldCase(raw, caseForField(options.fieldCases, f));
+    if (!raw) {
+      if (!options.keepEmpty) return "";
+      if (omitEmptyWrap) return "";
+    }
+    return applyFieldWrapper(raw, wrapperForField(options.fieldWrappers, f));
+  });
   const filtered = options.keepEmpty ? parts : parts.filter((p) => p.length > 0);
   return filtered.join(sep);
 }
@@ -176,6 +222,33 @@ function rowRoleName(row: AssEventRow): string {
   return key ? row.columns[key] ?? "" : "";
 }
 
+function actorSepFor(options: AssToSrtOptions): string {
+  return resolveActorSeparator({
+    separator: options.separator,
+    actorSeparator: options.actorSeparator ?? null,
+  });
+}
+
+export function formatAssCueLine(row: AssEventRow, options: AssToSrtOptions): string | null {
+  const role = rowRoleName(row);
+  if (options.skipCuesWithoutActor && options.montage) {
+    const actor = formatActorPrefix(role, row.start, options.montage);
+    if (!actor) return null;
+  }
+  let body = formatAssCueBody(row, options);
+  body = prefixCueWithActors(
+    body,
+    role,
+    row.start,
+    options.montage,
+    actorSepFor(options),
+    options.actorWrapper,
+    options.actorCase,
+  );
+  if (!body.trim() && !options.keepEmpty) return null;
+  return body;
+}
+
 export function assParsedToSrt(parsed: AssParseResult, options: AssToSrtOptions): string {
   const { rows } = parsed;
   if (rows.length === 0) return "";
@@ -183,9 +256,8 @@ export function assParsedToSrt(parsed: AssParseResult, options: AssToSrtOptions)
   const blocks: string[] = [];
   let index = 1;
   for (const row of rows) {
-    let body = formatAssCueBody(row, options);
-    body = prefixCueWithActors(body, rowRoleName(row), row.start, options.montage);
-    if (!body.trim() && !options.keepEmpty) continue;
+    const body = formatAssCueLine(row, options);
+    if (body === null) continue;
     blocks.push(
       `${index}\n${assTimeToSrt(row.start)} --> ${assTimeToSrt(row.end)}\n${body}`,
     );
@@ -207,8 +279,6 @@ export function looksLikeAss(text: string): boolean {
   );
 }
 
-/** Prefer Text column for default selection when present. */
-export function defaultSelectedFields(formatColumns: string[]): string[] {
-  const text = formatColumns.find((c) => c.toLowerCase() === "text");
-  return text ? [text] : formatColumns.slice(0, 1);
+export function formatColumnLabel(name: string): string {
+  return name;
 }

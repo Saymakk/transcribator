@@ -41,7 +41,7 @@ function defaultPersisted(): PersistedState {
     launchAtLogin: false,
     locale: normalizeLocale(typeof app !== "undefined" ? app.getLocale() : "en"),
     hotkeys: { ...DEFAULT_HOTKEYS },
-    assSrtPrefs: { ...DEFAULT_ASS_SRT_PREFS, fields: [...DEFAULT_ASS_SRT_PREFS.fields] },
+    assSrtPrefs: migrateAssSrtPrefs(DEFAULT_ASS_SRT_PREFS),
     updatePrefs: { ...DEFAULT_UPDATE_PREFS },
   };
 }

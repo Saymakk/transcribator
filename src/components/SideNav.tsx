@@ -1,6 +1,6 @@
 import { useLocale } from "../i18n/LocaleContext";
 
-export type AppSection = "layouts" | "convert" | "transform" | "settings";
+export type AppSection = "layouts" | "convert" | "markers" | "transform" | "settings";
 
 type Props = {
   section: AppSection;
@@ -13,6 +13,7 @@ export function SideNav({ section, onChange }: Props) {
   const items: { id: AppSection; label: string; hint: string }[] = [
     { id: "layouts", label: t("nav.layouts"), hint: t("nav.layoutsHint") },
     { id: "convert", label: t("nav.convert"), hint: t("nav.convertHint") },
+    { id: "markers", label: t("nav.markers"), hint: t("nav.markersHint") },
     { id: "transform", label: t("nav.transform"), hint: t("nav.transformHint") },
     { id: "settings", label: t("nav.settings"), hint: t("nav.settingsHint") },
   ];
